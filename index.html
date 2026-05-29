@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Virtual Tabletop</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Crimson Pro', Georgia, serif;
+    background: #0e0c0a;
+    color: #d4c9a8;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #1a1611;
+    border-bottom: 1px solid #3a2e1e;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  #toolbar h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: #c4a85a;
+    margin-right: 6px;
+  }
+
+  .tb-label {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: #6a5a3a;
+    text-transform: uppercase;
+  }
+
+  .tb-sep { width: 1px; height: 28px; background: #3a2e1e; margin: 0 4px; }
+
+  button {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 5px 11px;
+    border: 1px solid #4a3a22;
+    border-radius: 3px;
+    background: #231c12;
+    color: #c4b48a;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  button:hover { background: #2e2416; border-color: #6a5233; color: #e0c87a; }
+  button.active { background: #3a2c14; border-color: #9a7a3a; color: #e8d080; }
+
+  #token-color {
+    width: 28px; height: 28px;
+    border-radius: 3px;
+    border: 1px solid #4a3a22;
+    cursor: pointer;
+    padding: 2px;
+    background: #231c12;
+  }
+
+  #name-input {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    padding: 5px 9px;
+    background: #231c12;
+    border: 1px solid #4a3a22;
+    border-radius: 3px;
+    color: #e0c87a;
+    width: 110px;
+  }
+  #name-input:focus { outline: none; border-color: #9a7a3a; }
+
+  #main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #canvas-wrap {
+    position: absolute; inset: 0;
+    overflow: hidden;
+  }
+
+  #bg-layer {
+    position: absolute; inset: 0;
+    background: #1a1410;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  #bg-layer img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+    display: block;
+  }
+
+  #token-layer {
+    position: absolute; inset: 0;
+  }
+
+  .token {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transform: translate(-50%, -50%);
+  }
+  .token:active { cursor: grabbing; }
+  .token.selected .token-ring {
+    outline: 2px solid #e8d080;
+    outline-offset: 3px;
+  }
+
+  .token-ring {
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .token-icon {
+    font-size: 1.5em;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .token-label {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    color: #e8dfc0;
+    text-shadow: 0 1px 4px #000, 0 0 8px #000;
+    margin-top: 4px;
+    white-space: nowrap;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .resize-handle {
+    position: absolute;
+    bottom: 20px;
+    right: -6px;
+    width: 13px; height: 13px;
+    background: #e8d080;
+    border-radius: 50%;
+    cursor: se-resize;
+    opacity: 0;
+    transition: opacity 0.15s;
+    border: 1px solid #000;
+    z-index: 10;
+  }
+  .token.selected .resize-handle { opacity: 1; }
+
+  /* Context Menu */
+  #ctx-menu {
+    position: fixed;
+    background: #1e1810;
+    border: 1px solid #4a3a22;
+    border-radius: 4px;
+    padding: 4px 0;
+    z-index: 9999;
+    display: none;
+    min-width: 150px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.8);
+  }
+  .ctx-item {
+    padding: 7px 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    color: #c4b48a;
+  }
+  .ctx-item:hover { background: #2e2416; color: #e8d080; }
+  .ctx-item.danger { color: #c06050; }
+  .ctx-item.danger:hover { background: #2a1810; color: #e07060; }
+  .ctx-sep { height: 1px; background: #3a2e1e; margin: 4px 0; }
+
+  #hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: #4a4030;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>⚔ VTT</h1>
+  <div class="tb-sep"></div>
+  <span class="tb-label">Token</span>
+  <input type="text" id="name-input" placeholder="Name..." value="Hero" />
+  <input type="color" id="token-color" value="#3a7acc" title="Token color" />
+  <button id="btn-hero" class="active" onclick="setType('hero')">🧙 Hero</button>
+  <button id="btn-enemy" onclick="setType('enemy')">💀 Enemy</button>
+  <button onclick="addToken()">+ Place Token</button>
+
+  <div class="tb-sep"></div>
+  <span class="tb-label">Map</span>
+  <button onclick="document.getElementById('file-input').click()">📁 Load Background</button>
+  <button onclick="clearBG()">✕ Clear BG</button>
+
+  <div class="tb-sep"></div>
+  <button onclick="clearAll()" style="color:#c06050;border-color:#602020;">🗑 Clear All</button>
+</div>
+
+<div id="main">
+  <div id="canvas-wrap">
+    <div id="bg-layer" id="bgl">
+      <div id="bg-img-wrap" style="position:absolute;inset:0;"></div>
+    </div>
+    <div id="token-layer"></div>
+  </div>
+  <div id="hint">Place a token above, or right-click a token for options · Delete key removes selected</div>
+</div>
+
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxRename()">✏ Rename</div>
+  <div class="ctx-item" onclick="ctxRecolor()">🎨 Recolor</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxToggleType()">🔄 Toggle Type</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxDelete()">✕ Remove</div>
+</div>
+
+<input type="file" id="file-input" accept="image/*" onchange="loadBG(event)" />
+
+<script>
+const tokenLayer = document.getElementById('token-layer');
+const bgImgWrap = document.getElementById('bg-img-wrap');
+const bgLayer   = document.getElementById('bg-layer');
+const ctxMenu   = document.getElementById('ctx-menu');
+const hint      = document.getElementById('hint');
+
+let tokens = {};
+let nextId = 1;
+let selectedId = null;
+let ctxTarget = null;
+let tokenType = 'hero';
+
+const ICONS  = { hero: '🧙', enemy: '💀' };
+
+function setType(t) {
+  tokenType = t;
+  document.getElementById('btn-hero').classList.toggle('active', t === 'hero');
+  document.getElementById('btn-enemy').classList.toggle('active', t === 'enemy');
+}
+
+function addToken() {
+  const name  = document.getElementById('name-input').value.trim() || (tokenType === 'hero' ? 'Hero' : 'Enemy');
+  const color = document.getElementById('token-color').value;
+  const wrap  = document.getElementById('canvas-wrap');
+  const x = wrap.clientWidth  / 2 + (Math.random() - 0.5) * 140;
+  const y = wrap.clientHeight / 2 + (Math.random() - 0.5) * 100;
+  spawnToken({ id: nextId++, name, color, type: tokenType, x, y, size: 54 });
+  hint.style.display = 'none';
+}
+
+function spawnToken(data) {
+  const { id, name, color, type, x, y, size } = data;
+  tokens[id] = { ...data };
+
+  const el = document.createElement('div');
+  el.className = 'token';
+  el.dataset.id = id;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+
+  const ring = document.createElement('div');
+  ring.className = 'token-ring';
+  ring.style.width  = size + 'px';
+  ring.style.height = size + 'px';
+  ring.style.background = color;
+
+  const icon = document.createElement('div');
+  icon.className = 'token-icon';
+  icon.textContent = ICONS[type] || '●';
+  icon.style.fontSize = (size * 0.42) + 'px';
+
+  const label = document.createElement('div');
+  label.className = 'token-label';
+  label.textContent = name;
+
+  const handle = document.createElement('div');
+  handle.className = 'resize-handle';
+  handle.title = 'Drag to resize';
+
+  ring.appendChild(icon);
+  el.appendChild(ring);
+  el.appendChild(label);
+  el.appendChild(handle);
+  tokenLayer.appendChild(el);
+
+  makeDraggable(el, id);
+  makeResizable(handle, el, id);
+
+  el.addEventListener('click', e => { e.stopPropagation(); select(id); });
+  el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showCtx(e, id); });
+}
+
+function select(id) {
+  document.querySelectorAll('.token').forEach(t => t.classList.remove('selected'));
+  selectedId = id;
+  if (id != null) {
+    const el = tokenLayer.querySelector(`[data-id="${id}"]`);
+    if (el) { el.classList.add('selected'); el.style.zIndex = Date.now(); }
+  }
+}
+
+function makeDraggable(el, id) {
+  let ox = 0, oy = 0, dragging = false;
+
+  el.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('resize-handle')) return;
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    const wrap = document.getElementById('canvas-wrap').getBoundingClientRect();
+    ox = e.clientX - tokens[id].x;
+    oy = e.clientY - tokens[id].y;
+    dragging = true;
+    select(id);
+  });
+
+  el.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const wrap = document.getElementById('canvas-wrap').getBoundingClientRect();
+    const x = e.clientX - ox;
+    const y = e.clientY - oy;
+    tokens[id].x = x;
+    tokens[id].y = y;
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+  });
+
+  el.addEventListener('pointerup',    () => { dragging = false; });
+  el.addEventListener('pointercancel',() => { dragging = false; });
+}
+
+function makeResizable(handle, el, id) {
+  let startX, startSize, active = false;
+
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    startX    = e.clientX;
+    startSize = tokens[id].size;
+    active    = true;
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!active) return;
+    const newSize = Math.max(28, Math.min(130, startSize + (e.clientX - startX)));
+    tokens[id].size = newSize;
+    const ring = el.querySelector('.token-ring');
+    ring.style.width  = newSize + 'px';
+    ring.style.height = newSize + 'px';
+    ring.querySelector('.token-icon').style.fontSize = (newSize * 0.42) + 'px';
+  });
+
+  handle.addEventListener('pointerup',    () => { active = false; });
+  handle.addEventListener('pointercancel',() => { active = false; });
+}
+
+function showCtx(e, id) {
+  select(id);
+  ctxTarget = id;
+  ctxMenu.style.display = 'block';
+  ctxMenu.style.left = Math.min(e.clientX, window.innerWidth  - 160) + 'px';
+  ctxMenu.style.top  = Math.min(e.clientY, window.innerHeight - 130) + 'px';
+}
+function hideCtx() { ctxMenu.style.display = 'none'; }
+
+function ctxRename() {
+  hideCtx();
+  if (ctxTarget == null) return;
+  const n = prompt('New name:', tokens[ctxTarget].name);
+  if (n === null) return;
+  tokens[ctxTarget].name = n;
+  const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
+  if (el) el.querySelector('.token-label').textContent = n;
+}
+
+function ctxRecolor() {
+  hideCtx();
+  if (ctxTarget == null) return;
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.value = tokens[ctxTarget].color;
+  inp.style.display = 'none'; document.body.appendChild(inp);
+  inp.click();
+  inp.addEventListener('change', () => {
+    tokens[ctxTarget].color = inp.value;
+    const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
+    if (el) el.querySelector('.token-ring').style.background = inp.value;
+  });
+  inp.addEventListener('blur', () => { try { document.body.removeChild(inp); } catch(e) {} });
+}
+
+function ctxToggleType() {
+  hideCtx();
+  if (ctxTarget == null) return;
+  const t = tokens[ctxTarget];
+  t.type = t.type === 'hero' ? 'enemy' : 'hero';
+  const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
+  if (el) el.querySelector('.token-icon').textContent = ICONS[t.type];
+}
+
+function ctxDelete() {
+  hideCtx();
+  if (ctxTarget == null) return;
+  const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
+  if (el) el.remove();
+  delete tokens[ctxTarget];
+  ctxTarget = null; selectedId = null;
+  if (Object.keys(tokens).length === 0) hint.style.display = '';
+}
+
+function clearAll() {
+  if (!confirm('Remove all tokens?')) return;
+  tokenLayer.innerHTML = '';
+  tokens = {}; selectedId = null;
+  hint.style.display = '';
+}
+
+function loadBG(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const url = URL.createObjectURL(file);
+  bgImgWrap.innerHTML = '';
+  const img = document.createElement('img');
+  img.src = url;
+  bgImgWrap.appendChild(img);
+  bgLayer.style.backgroundImage = 'none';
+  e.target.value = '';
+}
+
+function clearBG() {
+  bgImgWrap.innerHTML = '';
+  bgLayer.style.backgroundImage = `
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`;
+}
+
+document.addEventListener('click', e => {
+  hideCtx();
+  if (!e.target.closest('.token')) select(null);
+});
+
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId !== null) {
+    if (document.activeElement.tagName === 'INPUT') return;
+    ctxTarget = selectedId;
+    ctxDelete();
+  }
+});
+
+// Demo tokens
+spawnToken({ id: nextId++, name: 'Aldric',  color: '#2a6aaa', type: 'hero',  x: 220, y: 240, size: 54 });
+spawnToken({ id: nextId++, name: 'Lyria',   color: '#7a3aaa', type: 'hero',  x: 320, y: 300, size: 54 });
+spawnToken({ id: nextId++, name: 'Goblin',  color: '#882222', type: 'enemy', x: 580, y: 240, size: 54 });
+spawnToken({ id: nextId++, name: 'Troll',   color: '#554422', type: 'enemy', x: 660, y: 340, size: 70 });
+hint.style.display = 'none';
+</script>
+</body>
+</html>
