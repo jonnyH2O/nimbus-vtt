@@ -106,6 +106,7 @@ function makeDraggable(el, id) {
     oy = w.y - tokens[id].y;
     dragging = true;
     select(id);
+    el.classList.add('lifted');
 
     if (snapToGrid && gridCellSize) {
       dragOriginCell = worldToCell(tokens[id].x, tokens[id].y);
@@ -155,6 +156,7 @@ function makeDraggable(el, id) {
     dragging = false;
     dragOriginCell = null;
     el.classList.remove('dragging');
+    el.classList.remove('lifted');
     clearPath();
   };
   el.addEventListener('pointerup',     endDrag);
