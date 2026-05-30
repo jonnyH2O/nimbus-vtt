@@ -189,7 +189,7 @@ function makeResizable(handle, el, id) {
 /* ───────── Token context menu ───────── */
 
 function showCtx(e, id) {
-  if (typeof hideBgCtx === 'function') hideBgCtx();
+  hideBgCtx();
   select(id);
   ctxTarget = id;
   ctxMenu.style.display = 'block';

@@ -25,7 +25,7 @@ async function saveBoard() {
     },
     obstacles: Array.from(obstacles),
     background: await captureBackgroundState(),
-    drawing: (typeof getDrawingDataURL === 'function') ? getDrawingDataURL() : null,
+    drawing: getDrawingDataURL(),
     view: { x: view.x, y: view.y, zoom: view.zoom }
   };
   const json = JSON.stringify(state, null, 2);
@@ -74,14 +74,10 @@ function restoreBoard(state) {
   tokens = {};
   selectedId = null;
   ctxTarget = null;
-  obstacles.clear();
-  gridCellSize = 0;
-  redrawGrid();
-  renderObstacles();
-  clearPath();
-  exitObstacleEdit();
-  if (typeof exitDrawingMode === 'function') exitDrawingMode();
   if (gridDrawMode) cancelGridDraw();
+  clearGrid();          // wipes grid + obstacles + exits obstacle-edit mode
+  clearPath();
+  exitDrawingMode();
   clearBG();
 
   // ── Grid ──
@@ -127,9 +123,7 @@ function restoreBoard(state) {
   nextId = maxId + 1;
 
   // ── Drawing layer ──
-  if (typeof restoreDrawingFromDataURL === 'function') {
-    restoreDrawingFromDataURL(typeof state.drawing === 'string' ? state.drawing : null);
-  }
+  restoreDrawingFromDataURL(typeof state.drawing === 'string' ? state.drawing : null);
 
   // ── View ──
   const v = (state.view && typeof state.view === 'object') ? state.view : null;
@@ -140,6 +134,5 @@ function restoreBoard(state) {
     applyView();
   }
 
-  // Hint visibility
-  hint.style.display = Object.keys(tokens).length === 0 ? '' : 'none';
+  restoreHint();
 }
