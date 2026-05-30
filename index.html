@@ -8,47 +8,118 @@
 <script defer src="js/tokens.js"></script>
 <script defer src="js/board.js"></script>
 </head>
-<body>
-
-<div id="toolbar">
-  <h1>⚔ VTT</h1>
-  <div class="tb-sep"></div>
-  <span class="tb-label">Token</span>
-  <input type="text" id="name-input" placeholder="Name..." value="Hero" />
-  <input type="color" id="token-color" value="#3a7acc" title="Token color" />
-  <button id="btn-hero" class="active" onclick="setType('hero')">🧙 Hero</button>
-  <button id="btn-enemy" onclick="setType('enemy')">💀 Enemy</button>
-  <button onclick="addToken()">+ Place Token</button>
-
-  <div class="tb-sep"></div>
-  <span class="tb-label">Map</span>
-  <button onclick="document.getElementById('file-input').click()">📁 Load Background</button>
-  <button onclick="clearBG()">✕ Clear BG</button>
-
-  <div class="tb-sep"></div>
-  <button onclick="clearAll()" style="color:#c06050;border-color:#602020;">🗑 Clear All</button>
-</div>
+<body data-theme="autumn-hearth">
 
 <div id="main">
   <div id="canvas-wrap">
-    <div id="bg-layer">
-      <div id="bg-img-wrap" style="position:absolute;inset:0;"></div>
+    <div id="world">
+      <div id="bg-grid"></div>
+      <div id="bg-img-wrap"></div>
+      <canvas id="grid-canvas" width="4000" height="4000"></canvas>
+      <div id="obstacle-layer"></div>
+      <div id="path-layer"></div>
+      <div id="token-layer"></div>
     </div>
-    <div id="token-layer"></div>
   </div>
-  <div id="hint">Place a token above, or right-click a token for options · Delete key removes selected</div>
+  <div id="hint"></div>
 </div>
 
-<div id="ctx-menu">
+<div class="panel-buttons">
+  <button id="btn-panel-grid" class="panel-btn" onclick="togglePanel('grid')" title="Grid">⊞</button>
+  <button id="btn-panel-tokens" class="panel-btn" onclick="togglePanel('tokens')" title="Tokens">♟</button>
+  <button id="btn-panel-settings" class="panel-btn" onclick="togglePanel('settings')" title="Settings">⚙</button>
+</div>
+
+<div id="panel-tokens" class="panel">
+  <div class="panel-header">Tokens</div>
+  <div class="panel-body">
+    <div class="panel-row">
+      <span class="panel-row-label">Name</span>
+      <div class="input-row">
+        <input type="text" id="name-input" placeholder="Name..." value="Token" />
+        <input type="color" id="token-color" value="#3a7acc" title="Token color" />
+      </div>
+    </div>
+    <div class="panel-row">
+      <span class="panel-row-label">Picture</span>
+      <div class="input-row">
+        <button id="btn-upload-pic" onclick="uploadPicForDefault()">Upload Picture</button>
+        <button onclick="clearCurrentTokenImage()" title="No picture">✕</button>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="addToken()">+ Place Token</button>
+  </div>
+</div>
+
+<div id="panel-grid" class="panel">
+  <div class="panel-header">Grid</div>
+  <div class="panel-body">
+    <button class="btn-primary" onclick="startGridDraw()">📐 Set Grid</button>
+    <button onclick="clearGrid()">✕ Clear Grid</button>
+    <button id="btn-snap-toggle" onclick="toggleSnap()">⊞ Snap to Grid</button>
+    <button id="btn-obstacle-toggle" onclick="toggleObstacleEdit()">🚫 Add Obstacle Cells</button>
+  </div>
+</div>
+
+<div id="panel-settings" class="panel">
+  <div class="panel-header">Settings</div>
+  <div class="panel-body">
+    <div class="panel-row">
+      <span class="panel-row-label">Theme</span>
+      <div class="select-wrap">
+        <select id="theme-select" onchange="setTheme(this.value)">
+          <option value="autumn-hearth">Autumn Hearth</option>
+          <option value="midnight-nimbus">Midnight Nimbus</option>
+          <option value="mist-and-moss">Mist and Moss</option>
+        </select>
+      </div>
+    </div>
+    <div class="panel-row">
+      <span class="panel-row-label">Board</span>
+      <button onclick="saveBoard()">💾 Save</button>
+      <button onclick="document.getElementById('load-input').click()">📂 Load</button>
+    </div>
+  </div>
+</div>
+
+<div id="ctx-menu" class="ctx-menu">
   <div class="ctx-item" onclick="ctxRename()">✏ Rename</div>
   <div class="ctx-item" onclick="ctxRecolor()">🎨 Recolor</div>
-  <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxToggleType()">🔄 Toggle Type</div>
+  <div class="ctx-item" onclick="ctxChangePicture()">🖼 Change Picture</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item danger" onclick="ctxDelete()">✕ Remove</div>
 </div>
 
+<div id="bg-ctx-menu" class="ctx-menu">
+  <div class="ctx-item" onclick="bgCtxLoad()">📁 Load Background</div>
+  <div class="ctx-item" onclick="bgCtxClear()">✕ Clear Background</div>
+  <div class="ctx-item" onclick="bgCtxRotate()">🔄 Rotate Background</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="bgCtxClearAll()">🗑 Clear All Tokens</div>
+</div>
+
 <input type="file" id="file-input" accept="image/*" onchange="loadBG(event)" />
+<input type="file" id="token-pic-input" accept="image/*" onchange="handleTokenPicUpload(event)" />
+<input type="file" id="load-input" accept=".json,application/json" onchange="loadBoardFile(event)" />
+
+<div id="crop-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">Crop Token Image</div>
+    <div class="modal-body">
+      <div id="crop-area" class="crop-area">
+        <div id="crop-image-wrap" class="crop-image-wrap">
+          <img id="crop-image" alt="" />
+        </div>
+        <div class="crop-circle"></div>
+      </div>
+      <div class="modal-hint">Drag to pan · Scroll to zoom</div>
+      <div class="modal-actions">
+        <button onclick="cancelCrop()">Cancel</button>
+        <button class="btn-primary" onclick="acceptCrop()">Use Image</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
