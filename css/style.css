@@ -299,6 +299,91 @@ button.btn-primary:hover {
 
 .panel-body > button { width: 100%; }
 
+/* Drawing panel: tool row */
+.tool-row {
+  display: flex;
+  gap: 4px;
+}
+.tool-row .tool-btn {
+  flex: 1;
+  padding: 9px 0;
+  font-size: 16px;
+  letter-spacing: 0;
+  min-width: 0;
+}
+
+/* Drawing panel: color row */
+.color-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.swatch {
+  width: 24px; height: 24px;
+  padding: 0;
+  border: 2px solid var(--border-dark);
+  box-shadow: inset 0 0 0 1px var(--border-light), var(--shadow-drop);
+  border-radius: 0;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.swatch:hover { transform: translateY(-2px); }
+.swatch.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#draw-color-picker {
+  width: 30px; height: 30px;
+  border: 2px solid var(--border-dark);
+  box-shadow: inset 0 0 0 1px var(--border-light);
+  border-radius: 0;
+  padding: 2px;
+  background: var(--box-bg);
+  cursor: pointer;
+  margin-left: auto;
+}
+
+/* Drawing panel: brush slider */
+.draw-slider {
+  width: 100%;
+  height: 24px;
+  cursor: pointer;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.draw-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  background: var(--box-bg);
+  border: 2px solid var(--border-dark);
+  box-shadow: inset 0 0 0 1px var(--border-light);
+}
+.draw-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border: 2px solid var(--border-dark);
+  border-radius: 0;
+  margin-top: -7px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.draw-slider::-moz-range-track {
+  height: 8px;
+  background: var(--box-bg);
+  border: 2px solid var(--border-dark);
+  box-shadow: inset 0 0 0 1px var(--border-light);
+}
+.draw-slider::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  border: 2px solid var(--border-dark);
+  border-radius: 0;
+  cursor: pointer;
+}
+
 /* ───────── CANVAS ───────── */
 
 #main {
@@ -314,11 +399,19 @@ button.btn-primary:hover {
   cursor: grab;
   touch-action: none;
 }
-#canvas-wrap.panning { cursor: grabbing; }
 #canvas-wrap.grid-draw-mode,
 #canvas-wrap.grid-draw-mode * { cursor: crosshair !important; }
 #canvas-wrap.obstacle-edit-mode,
 #canvas-wrap.obstacle-edit-mode * { cursor: crosshair !important; }
+body.drawing-active #canvas-wrap,
+body.drawing-active #canvas-wrap * { cursor: crosshair !important; }
+body.drawing-active #token-layer { pointer-events: none; }
+body.space-pan #canvas-wrap,
+body.space-pan #canvas-wrap * { cursor: grab !important; }
+body.space-pan #token-layer { pointer-events: none; }
+/* Active pan wins over any tool cursor */
+#canvas-wrap.panning,
+#canvas-wrap.panning * { cursor: grabbing !important; }
 
 #world {
   position: absolute;
@@ -351,6 +444,13 @@ button.btn-primary:hover {
 }
 
 #grid-canvas {
+  position: absolute;
+  left: -2000px; top: -2000px;
+  width: 4000px; height: 4000px;
+  pointer-events: none;
+}
+
+#drawing-layer {
   position: absolute;
   left: -2000px; top: -2000px;
   width: 4000px; height: 4000px;

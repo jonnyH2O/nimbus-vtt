@@ -52,12 +52,36 @@ canvasWrap.addEventListener('wheel', e => {
   applyView();
 }, { passive: false });
 
+/* Hold Space to temporarily override any active tool and pan instead */
+let spaceHeld = false;
+document.addEventListener('keydown', e => {
+  if (e.key !== ' ' && e.code !== 'Space') return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  e.preventDefault();
+  if (!spaceHeld) {
+    spaceHeld = true;
+    document.body.classList.add('space-pan');
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.key !== ' ' && e.code !== 'Space') return;
+  spaceHeld = false;
+  document.body.classList.remove('space-pan');
+});
+window.addEventListener('blur', () => {
+  if (spaceHeld) { spaceHeld = false; document.body.classList.remove('space-pan'); }
+});
+
 /* Pan — drag empty canvas with left or middle button */
 let panActive = false, panMoved = false, panStartX = 0, panStartY = 0, panOrigX = 0, panOrigY = 0;
 canvasWrap.addEventListener('pointerdown', e => {
   if (e.target.closest('.token')) return;
-  if (gridDrawMode) { gridDrawDown(e); return; }
-  if (obstacleEditMode && e.button === 0) { obstaclePaintDown(e); return; }
+  if (!spaceHeld) {
+    if (gridDrawMode) { gridDrawDown(e); return; }
+    if (obstacleEditMode && e.button === 0) { obstaclePaintDown(e); return; }
+    if (typeof isDrawingActive === 'function' && isDrawingActive() && e.button === 0) { drawDown(e); return; }
+  }
   if (e.button !== 0 && e.button !== 1) return;
   panActive = true;
   panMoved = false;
@@ -70,6 +94,7 @@ canvasWrap.addEventListener('pointerdown', e => {
 canvasWrap.addEventListener('pointermove', e => {
   if (gridDrawMode) { gridDrawMove(e); return; }
   if (obstaclePaintActive) { obstaclePaintMove(e); return; }
+  if (typeof drawActive !== 'undefined' && drawActive) { drawMove(e); return; }
   if (!panActive) return;
   const dx = e.clientX - panStartX;
   const dy = e.clientY - panStartY;
@@ -85,6 +110,7 @@ canvasWrap.addEventListener('pointermove', e => {
 function endPan(e) {
   if (gridDrawMode) { gridDrawUp(e); return; }
   if (obstaclePaintActive) { obstaclePaintUp(e); return; }
+  if (typeof drawActive !== 'undefined' && drawActive) { drawUp(e); return; }
   if (!panActive) return;
   panActive = false;
   canvasWrap.classList.remove('panning');
@@ -467,6 +493,7 @@ function togglePanel(name) {
   }
   document.body.classList.toggle('grid-panel-open', openPanel === 'grid');
   if (openPanel !== 'grid') exitObstacleEdit();
+  if (openPanel !== 'drawing' && typeof exitDrawingMode === 'function') exitDrawingMode();
 }
 
 /* ───────── Background ───────── */
@@ -591,6 +618,7 @@ async function saveBoard() {
     },
     obstacles: Array.from(obstacles),
     background: await captureBackgroundState(),
+    drawing: (typeof getDrawingDataURL === 'function') ? getDrawingDataURL() : null,
     view: { x: view.x, y: view.y, zoom: view.zoom }
   };
   const json = JSON.stringify(state, null, 2);
@@ -668,6 +696,7 @@ function restoreBoard(state) {
   renderObstacles();
   clearPath();
   exitObstacleEdit();
+  if (typeof exitDrawingMode === 'function') exitDrawingMode();
   if (gridDrawMode) cancelGridDraw();
   clearBG();
 
@@ -728,6 +757,11 @@ function restoreBoard(state) {
     }
   }
   nextId = maxId + 1;
+
+  // ── Drawing layer ──
+  if (typeof restoreDrawingFromDataURL === 'function') {
+    restoreDrawingFromDataURL(typeof state.drawing === 'string' ? state.drawing : null);
+  }
 
   // ── View ──
   const v = (state.view && typeof state.view === 'object') ? state.view : null;

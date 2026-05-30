@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="css/style.css" />
 <script defer src="js/tokens.js"></script>
 <script defer src="js/board.js"></script>
+<script defer src="js/drawing.js"></script>
 </head>
 <body data-theme="autumn-hearth">
 
@@ -16,6 +17,7 @@
       <div id="bg-grid"></div>
       <div id="bg-img-wrap"></div>
       <canvas id="grid-canvas" width="4000" height="4000"></canvas>
+      <canvas id="drawing-layer" width="4000" height="4000"></canvas>
       <div id="obstacle-layer"></div>
       <div id="path-layer"></div>
       <div id="token-layer"></div>
@@ -25,9 +27,43 @@
 </div>
 
 <div class="panel-buttons">
+  <button id="btn-panel-drawing" class="panel-btn" onclick="togglePanel('drawing')" title="Drawing">🖌</button>
   <button id="btn-panel-grid" class="panel-btn" onclick="togglePanel('grid')" title="Grid">⊞</button>
   <button id="btn-panel-tokens" class="panel-btn" onclick="togglePanel('tokens')" title="Tokens">♟</button>
   <button id="btn-panel-settings" class="panel-btn" onclick="togglePanel('settings')" title="Settings">⚙</button>
+</div>
+
+<div id="panel-drawing" class="panel">
+  <div class="panel-header">Drawing</div>
+  <div class="panel-body">
+    <div class="panel-row">
+      <span class="panel-row-label">Tool</span>
+      <div class="tool-row">
+        <button id="btn-tool-pen"    class="tool-btn" onclick="setDrawTool('pen')"    title="Draw">✏</button>
+        <button id="btn-tool-rect"   class="tool-btn" onclick="setDrawTool('rect')"   title="Rectangle">⬜</button>
+        <button id="btn-tool-circle" class="tool-btn" onclick="setDrawTool('circle')" title="Circle">⭕</button>
+        <button id="btn-tool-line"   class="tool-btn" onclick="setDrawTool('line')"   title="Line">➖</button>
+        <button id="btn-tool-eraser" class="tool-btn" onclick="setDrawTool('eraser')" title="Eraser">◻</button>
+      </div>
+    </div>
+    <div class="panel-row">
+      <span class="panel-row-label">Color</span>
+      <div class="color-row">
+        <button class="swatch" data-color="#e04040" style="background:#e04040" onclick="setDrawColor('#e04040')"></button>
+        <button class="swatch" data-color="#4080e0" style="background:#4080e0" onclick="setDrawColor('#4080e0')"></button>
+        <button class="swatch" data-color="#50c060" style="background:#50c060" onclick="setDrawColor('#50c060')"></button>
+        <button class="swatch" data-color="#e0c040" style="background:#e0c040" onclick="setDrawColor('#e0c040')"></button>
+        <button class="swatch" data-color="#ffffff" style="background:#ffffff" onclick="setDrawColor('#ffffff')"></button>
+        <button class="swatch" data-color="#e08040" style="background:#e08040" onclick="setDrawColor('#e08040')"></button>
+        <input type="color" id="draw-color-picker" value="#e04040" onchange="setDrawColor(this.value)" />
+      </div>
+    </div>
+    <div class="panel-row">
+      <span class="panel-row-label">Brush Size</span>
+      <input type="range" id="draw-size-slider" class="draw-slider" min="2" max="40" step="1" value="6" oninput="setDrawSize(this.value)" />
+    </div>
+    <button onclick="clearDrawing()">🗑 Clear Drawing</button>
+  </div>
 </div>
 
 <div id="panel-tokens" class="panel">
