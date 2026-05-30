@@ -8,6 +8,13 @@ let bgRotation = 0;
 let bgNaturalW = 0;
 let bgNaturalH = 0;
 
+function initBackground() {
+  // Start with no custom background; the solid theme colour shows through.
+  bgRotation = 0;
+  bgNaturalW = 0;
+  bgNaturalH = 0;
+}
+
 function loadBG(e) {
   const file = e.target.files[0]; if (!file) return;
   const url = URL.createObjectURL(file);

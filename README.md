@@ -79,6 +79,8 @@ Plain HTML/CSS/vanilla JavaScript, split into focused modules:
 | --- | --- |
 | `index.html` | Markup, panels, menus, and modal |
 | `css/style.css` | Theming and all styling |
+| `js/main.js` | Entry point — initializes shared state then bootstraps every module in order |
+| `js/state.js` | Shared application state (token registry + view transform) and `initState()` |
 | `js/board.js` | View (pan/zoom), panels, themes, background context menu, global input |
 | `js/tokens.js` | Token spawn/drag/resize, context menu, picture upload & crop |
 | `js/grid.js` | Grid definition, snap math, cell/world conversions, obstacles |
@@ -86,6 +88,8 @@ Plain HTML/CSS/vanilla JavaScript, split into focused modules:
 | `js/drawing.js` | Drawing layer: tools, color/size, undo/redo, shortcuts |
 | `js/background.js` | Background image load/clear/rotate and serialization |
 | `js/saveload.js` | JSON export/import of the full board state |
+
+Each module that needs setup exposes a global `init*()` function; `js/main.js` is loaded last and calls them in a fixed order (`initState → initBoard → initTokens → initGrid → initDrawing → initBackground → initSaveLoad`), then lays out the opening scene.
 
 ## License
 

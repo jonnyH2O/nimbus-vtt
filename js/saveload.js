@@ -5,6 +5,12 @@
 
 const SAVE_VERSION = 1;
 
+function initSaveLoad() {
+  // Save and Load are driven entirely by the inline handlers in index.html
+  // (the Save button and the hidden load-file <input>), so there are no
+  // listeners to wire up here. Present for a symmetric init() chain.
+}
+
 async function saveBoard() {
   const state = {
     version: SAVE_VERSION,

@@ -269,26 +269,28 @@ function restoreDrawingFromDataURL(dataURL) {
   img.src = dataURL;
 }
 
-/* ───── Keyboard: Ctrl+Z / Ctrl+Shift+Z ───── */
+/* ───── Init (keyboard shortcuts + initial color) ───── */
 
-document.addEventListener('keydown', e => {
-  if (!(e.ctrlKey || e.metaKey)) return;
-  const tag = document.activeElement && document.activeElement.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  const k = e.key.toLowerCase();
-  if (k === 'z' && !e.shiftKey)                 { e.preventDefault(); drawUndo(); }
-  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); drawRedo(); }
-});
+function initDrawing() {
+  /* Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — undo / redo */
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey)                 { e.preventDefault(); drawUndo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); drawRedo(); }
+  });
 
-/* ───── Keyboard: D = draw, E = erase (toggle; works without the panel) ───── */
+  /* D = draw, E = erase (toggle; works without the panel open) */
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const k = e.key.toLowerCase();
+    if (k === 'd')      { e.preventDefault(); setDrawTool('pen'); }
+    else if (k === 'e') { e.preventDefault(); setDrawTool('eraser'); }
+  });
 
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  const tag = document.activeElement && document.activeElement.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  const k = e.key.toLowerCase();
-  if (k === 'd')      { e.preventDefault(); setDrawTool('pen'); }
-  else if (k === 'e') { e.preventDefault(); setDrawTool('eraser'); }
-});
-
-setDrawColor(currentDrawColor);
+  setDrawColor(currentDrawColor);
+}

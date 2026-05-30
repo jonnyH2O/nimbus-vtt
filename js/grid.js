@@ -167,7 +167,10 @@ function updateSnapButton() {
   if (!btn) return;
   btn.classList.toggle('active', snapToGrid);
 }
-updateSnapButton();
+
+function initGrid() {
+  updateSnapButton();
+}
 
 /* ───────── Obstacles (data-model API) ───────── */
 

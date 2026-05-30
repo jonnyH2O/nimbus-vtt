@@ -2,10 +2,8 @@ const tokenLayer = document.getElementById('token-layer');
 const ctxMenu    = document.getElementById('ctx-menu');
 const hint       = document.getElementById('hint');
 
-let tokens = {};
-let nextId = 1;
-let selectedId = null;
-let ctxTarget = null;
+/* Token registry state (tokens / nextId / selectedId / ctxTarget) lives in
+   state.js so save/load and board.js can share it. */
 
 /* ───────── Default token image (used by + Place Token) ───────── */
 
@@ -327,7 +325,7 @@ function applyCropTransform() {
   wrap.style.transform = `translate(${cropImgX}px, ${cropImgY}px) scale(${cropScale})`;
 }
 
-(function setupCropHandlers() {
+function setupCropHandlers() {
   const area = document.getElementById('crop-area');
   if (!area) return;
   let active = false, sx = 0, sy = 0, ox0 = 0, oy0 = 0;
@@ -367,7 +365,7 @@ function applyCropTransform() {
   modal.addEventListener('click', e => {
     if (e.target === modal) cancelCrop();
   });
-})();
+}
 
 function acceptCrop() {
   const img = document.getElementById('crop-image');
@@ -399,8 +397,14 @@ function closeCropModal() {
   document.getElementById('crop-modal').classList.remove('open');
 }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('crop-modal').classList.contains('open')) {
-    cancelCrop();
-  }
-});
+/* ───────── Init ───────── */
+
+function initTokens() {
+  setupCropHandlers();
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('crop-modal').classList.contains('open')) {
+      cancelCrop();
+    }
+  });
+}
