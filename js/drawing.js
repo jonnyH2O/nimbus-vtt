@@ -125,6 +125,7 @@ function drawUp(e) {
   drawCurrentPoints = null;
   drawStartPt = null;
   drawShapeSnapshot = null;
+  syncDrawing();
 }
 
 /* ───── Stroke primitives ───── */
@@ -231,16 +232,26 @@ function drawUndo() {
   if (!drawingStrokes.length) return;
   drawingUndoneStrokes.push(drawingStrokes.pop());
   redrawAll();
+  syncDrawing();
 }
 function drawRedo() {
   if (!drawingUndoneStrokes.length) return;
   const s = drawingUndoneStrokes.pop();
   drawingStrokes.push(s);
   drawStrokeOnContext(drawingCtx, s);
+  syncDrawing();
 }
 function clearDrawing() {
   pushStroke({ type: 'clear' });
   drawStrokeOnContext(drawingCtx, { type: 'clear' });
+  syncDrawing();
+}
+
+/* ───── Sync helper (push the canvas as a data URL) ───── */
+
+// Broadcast the current drawing layer to the room (no-op if offline).
+function syncDrawing() {
+  if (window.Sync) window.Sync.pushDrawing(getDrawingDataURL());
 }
 
 /* ───── Save / Load hooks ───── */

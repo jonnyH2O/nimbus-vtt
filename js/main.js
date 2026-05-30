@@ -21,4 +21,14 @@
   spawnToken({ id: nextId++, name: 'Goblin',  color: '#882222', x: 580, y: 240, size: 54 });
   spawnToken({ id: nextId++, name: 'Troll',   color: '#554422', x: 660, y: 340, size: 70 });
   restoreHint();
+
+  // Real-time multiplayer (optional). sync.js is an ES module loaded last via
+  // dynamic import so a blocked Firebase CDN or empty config can never break
+  // local play — by the time this runs the app is already fully initialized.
+  // The URL is resolved against the document base so it works under Live
+  // Server and GitHub Pages project sites (e.g. /<repo>/) alike.
+  const syncUrl = new URL('js/sync.js', document.baseURI).href;
+  import(syncUrl)
+    .then(mod => mod.initSync())
+    .catch(err => console.warn('[sync] multiplayer disabled:', err));
 })();

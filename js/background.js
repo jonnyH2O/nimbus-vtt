@@ -26,10 +26,27 @@ function loadBG(e) {
     bgRotation = 0;
     applyBgTransform();
     fitToView(bgNaturalW, bgNaturalH);
+    syncBackground();
   };
   img.src = url;
   bgImgWrap.appendChild(img);
   e.target.value = '';
+}
+
+/* ───────── Sync helpers (push local changes + apply remote ones) ───────── */
+
+// Broadcast the current background as a base64 data URL (null when cleared).
+function syncBackground() {
+  if (!window.Sync) return;
+  captureBackgroundState()
+    .then(s => window.Sync.pushBackground(s.image))
+    .catch(() => {});
+}
+
+// Called by sync.js when the background changes remotely.
+function applyRemoteBackground(base64) {
+  if (!base64) { clearBG(); return; }
+  restoreBackgroundFromState({ image: base64, rotation: 0 });
 }
 
 function applyBgTransform() {

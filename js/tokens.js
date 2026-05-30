@@ -31,8 +31,10 @@ function addToken() {
   const center = screenToWorld(wrap.clientWidth / 2, wrap.clientHeight / 2);
   const x = center.x + (Math.random() - 0.5) * 140;
   const y = center.y + (Math.random() - 0.5) * 100;
-  spawnToken({ id: nextId++, name, color, image: currentTokenImage, x, y, size: 54 });
+  const id = nextId++;
+  spawnToken({ id, name, color, image: currentTokenImage, x, y, size: 54 });
   hint.style.display = 'none';
+  syncToken(id);
 }
 
 function spawnToken(data) {
@@ -78,6 +80,76 @@ function spawnToken(data) {
 
   el.addEventListener('click', e => { e.stopPropagation(); select(id); });
   el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showCtx(e, id); });
+}
+
+/* ───────── Sync helpers (push local changes + apply remote ones) ───────── */
+
+function serializeToken(t) {
+  return {
+    id: t.id, name: t.name, type: t.type ?? null,
+    color: t.color, image: t.image ?? null,
+    x: t.x, y: t.y, size: t.size
+  };
+}
+
+// Push a single token's current state to the shared room (no-op if offline).
+function syncToken(id) {
+  if (window.Sync && tokens[id]) window.Sync.pushToken(serializeToken(tokens[id]));
+}
+
+function normalizeRemoteToken(d) {
+  return {
+    id:    Number(d.id),
+    name:  String(d.name ?? 'Token'),
+    type:  d.type ?? null,
+    color: String(d.color ?? '#888888'),
+    image: typeof d.image === 'string' ? d.image : null,
+    x:     Number(d.x) || 0,
+    y:     Number(d.y) || 0,
+    size:  Number(d.size) || 54
+  };
+}
+
+// Called by sync.js when a remote token is added or changed.
+function upsertRemoteToken(data) {
+  const t = normalizeRemoteToken(data);
+  if (!Number.isFinite(t.id)) return;
+  const el = tokenLayer.querySelector(`[data-id="${t.id}"]`);
+  if (!tokens[t.id] || !el) { spawnToken(t); hint.style.display = 'none'; return; }
+
+  Object.assign(tokens[t.id], t);
+  el.style.left = t.x + 'px';
+  el.style.top  = t.y + 'px';
+  const ring = el.querySelector('.token-ring');
+  if (ring) {
+    ring.style.width  = t.size + 'px';
+    ring.style.height = t.size + 'px';
+    ring.style.backgroundColor = t.color;
+    if (t.image) {
+      ring.style.backgroundImage    = `url("${t.image}")`;
+      ring.style.backgroundSize     = 'cover';
+      ring.style.backgroundPosition = 'center';
+    } else {
+      ring.style.backgroundImage = '';
+    }
+  }
+  const label = el.querySelector('.token-label');
+  if (label) label.textContent = t.name;
+}
+
+// Called by sync.js when a remote token is removed.
+function removeTokenLocal(id) {
+  const el = tokenLayer.querySelector(`[data-id="${id}"]`);
+  if (el) el.remove();
+  delete tokens[id];
+  if (selectedId === id) selectedId = null;
+  if (ctxTarget === id) ctxTarget = null;
+  if (Object.keys(tokens).length === 0) hint.style.display = '';
+}
+
+// Keep local id allocation ahead of ids seen from other clients.
+function bumpNextId(n) {
+  if (Number.isFinite(n) && n > nextId) nextId = n;
 }
 
 function select(id) {
@@ -156,6 +228,7 @@ function makeDraggable(el, id) {
     el.classList.remove('dragging');
     el.classList.remove('lifted');
     clearPath();
+    syncToken(id);
   };
   el.addEventListener('pointerup',     endDrag);
   el.addEventListener('pointercancel', endDrag);
@@ -182,7 +255,7 @@ function makeResizable(handle, el, id) {
     ring.style.height = newSize + 'px';
   });
 
-  handle.addEventListener('pointerup',    () => { active = false; });
+  handle.addEventListener('pointerup',    () => { active = false; syncToken(id); });
   handle.addEventListener('pointercancel',() => { active = false; });
 }
 
@@ -206,6 +279,7 @@ function ctxRename() {
   tokens[ctxTarget].name = n;
   const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
   if (el) el.querySelector('.token-label').textContent = n;
+  syncToken(ctxTarget);
 }
 
 function ctxRecolor() {
@@ -214,11 +288,13 @@ function ctxRecolor() {
   const inp = document.createElement('input');
   inp.type = 'color'; inp.value = tokens[ctxTarget].color;
   inp.style.display = 'none'; document.body.appendChild(inp);
+  const targetId = ctxTarget;
   inp.click();
   inp.addEventListener('change', () => {
-    tokens[ctxTarget].color = inp.value;
-    const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
+    tokens[targetId].color = inp.value;
+    const el = tokenLayer.querySelector(`[data-id="${targetId}"]`);
     if (el) el.querySelector('.token-ring').style.backgroundColor = inp.value;
+    syncToken(targetId);
   });
   inp.addEventListener('blur', () => { try { document.body.removeChild(inp); } catch(e) {} });
 }
@@ -232,15 +308,18 @@ function ctxChangePicture() {
 function ctxDelete() {
   hideCtx();
   if (ctxTarget == null) return;
+  const removedId = ctxTarget;
   const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
   if (el) el.remove();
   delete tokens[ctxTarget];
   ctxTarget = null; selectedId = null;
   if (Object.keys(tokens).length === 0) hint.style.display = '';
+  if (window.Sync) window.Sync.removeToken(removedId);
 }
 
 function clearAll() {
   if (!confirm('Remove all tokens?')) return;
+  if (window.Sync) for (const id of Object.keys(tokens)) window.Sync.removeToken(Number(id));
   tokenLayer.innerHTML = '';
   tokens = {}; selectedId = null;
   hint.style.display = '';
@@ -290,6 +369,7 @@ function applyImageToToken(id, dataURL) {
   ring.style.backgroundImage    = `url("${dataURL}")`;
   ring.style.backgroundSize     = 'cover';
   ring.style.backgroundPosition = 'center';
+  syncToken(id);
 }
 
 /* ───────── Crop modal ───────── */
