@@ -420,18 +420,6 @@ body.space-pan #token-layer { pointer-events: none; }
   transform-origin: 0 0;
 }
 
-#bg-grid {
-  position: absolute;
-  left: -50000px; top: -50000px;
-  width: 100000px; height: 100000px;
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 50px 50px;
-  pointer-events: none;
-}
-#bg-grid.hidden { background-image: none; }
-
 #bg-img-wrap {
   position: absolute;
   left: 0; top: 0;

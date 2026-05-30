@@ -280,4 +280,15 @@ document.addEventListener('keydown', e => {
   else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); drawRedo(); }
 });
 
+/* ───── Keyboard: D = draw, E = erase (toggle; works without the panel) ───── */
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if (k === 'd')      { e.preventDefault(); setDrawTool('pen'); }
+  else if (k === 'e') { e.preventDefault(); setDrawTool('eraser'); }
+});
+
 setDrawColor(currentDrawColor);

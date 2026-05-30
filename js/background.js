@@ -1,9 +1,8 @@
 /* ───────── Background image: load, clear, rotate, save/restore ─────────
-   bgImgWrap holds the loaded image; bgGrid is the default checkerboard
-   pattern that is hidden whenever a custom background is present. */
+   bgImgWrap holds the loaded image; when none is present the solid theme
+   colour (--canvas-bg) shows through. */
 
 const bgImgWrap = document.getElementById('bg-img-wrap');
-const bgGrid    = document.getElementById('bg-grid');
 
 let bgRotation = 0;
 let bgNaturalW = 0;
@@ -15,7 +14,6 @@ function loadBG(e) {
   bgImgWrap.innerHTML = '';
   const img = document.createElement('img');
   img.onload = () => {
-    bgGrid.classList.add('hidden');
     bgNaturalW = img.naturalWidth;
     bgNaturalH = img.naturalHeight;
     bgRotation = 0;
@@ -53,7 +51,6 @@ function clearBG() {
   bgImgWrap.innerHTML = '';
   bgImgWrap.style.width = '';
   bgImgWrap.style.height = '';
-  bgGrid.classList.remove('hidden');
   bgRotation = 0;
   bgNaturalW = 0;
   bgNaturalH = 0;
@@ -88,7 +85,6 @@ function restoreBackgroundFromState(bg) {
   bgImgWrap.innerHTML = '';
   const img = document.createElement('img');
   img.onload = () => {
-    bgGrid.classList.add('hidden');
     bgNaturalW = img.naturalWidth;
     bgNaturalH = img.naturalHeight;
     bgRotation = Number(bg.rotation) || 0;
