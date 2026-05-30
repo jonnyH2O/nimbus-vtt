@@ -1,17 +1,3 @@
-# nimbus-vtt
-
-A lightweight, browser-based **virtual tabletop** for running tabletop RPG encounters. It runs entirely client-side — no build step, no server, no dependencies. Just open `index.html` in a browser and play.
-
-## Getting started
-
-Clone or download the repository and open `index.html` in any modern browser. The board loads with a few demo tokens so you can start experimenting immediately. Everything you create can be exported to a single `.json` file and reloaded later.
-
-```
-git clone https://github.com/jonnyH2O/nimbus-vtt.git
-cd nimbus-vtt
-# open index.html in your browser
-```
-
 ## Features
 
 ### Board, pan & zoom
