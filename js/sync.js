@@ -89,13 +89,29 @@ export function initSync() {
 }
 
 function listenTokens() {
-  let prevIds = new Set();
+  let seeded = false;
   onValue(pathRef('tokens'), snap => {
-    const val = snap.val() || {};
+    const val = snap.val();
+
+    // First snapshot of an empty room: seed it from our local tokens (e.g. the
+    // demo tokens) so they become shared instead of being wiped by the
+    // authoritative reconcile below. Runs once, before anyone has loaded/edited.
+    if (!seeded) {
+      seeded = true;
+      if (val == null && window.getLocalTokens) {
+        const local = window.getLocalTokens();
+        if (local.length) {
+          for (const t of local) pushToken(t);
+          return; // the next snapshot will include them
+        }
+      }
+    }
+
+    const map = val || {};
     const curIds = new Set();
     let maxId = 0;
-    for (const key in val) {
-      const t = val[key];
+    for (const key in map) {
+      const t = map[key];
       if (!t || typeof t !== 'object') continue;
       const id = Number(t.id);
       if (!Number.isFinite(id)) continue;
@@ -104,11 +120,14 @@ function listenTokens() {
       if (t._by === clientId) continue;            // our own write — skip
       if (window.upsertRemoteToken) window.upsertRemoteToken(t);
     }
-    // Tokens that were in the room before but are gone now → remove locally.
-    for (const id of prevIds) {
-      if (!curIds.has(id) && window.removeTokenLocal) window.removeTokenLocal(id);
+    // Room is authoritative: drop any LOCAL token that isn't in the snapshot.
+    // This is what makes a loaded board (or a remote delete) clear leftover
+    // tokens everywhere — including local-only ones that were never pushed.
+    if (window.getLocalTokenIds && window.removeTokenLocal) {
+      for (const id of window.getLocalTokenIds()) {
+        if (!curIds.has(id)) window.removeTokenLocal(id);
+      }
     }
-    prevIds = curIds;
     if (window.bumpNextId) window.bumpNextId(maxId + 1);
   }, err => console.warn('[sync] tokens listener:', err));
 }
