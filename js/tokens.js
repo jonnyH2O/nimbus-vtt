@@ -164,9 +164,8 @@ function bumpNextId(n) {
   if (Number.isFinite(n) && n > nextId) nextId = n;
 }
 
-// Used by sync.js to seed a fresh room and to reconcile against the room as
-// the source of truth (any local token not in the room snapshot is removed).
-function getLocalTokens()   { return Object.values(tokens).map(serializeToken); }
+// Used by sync.js to reconcile against the room as the source of truth: any
+// local token not present in the room snapshot is removed.
 function getLocalTokenIds() { return Object.keys(tokens).map(Number); }
 
 function select(id) {

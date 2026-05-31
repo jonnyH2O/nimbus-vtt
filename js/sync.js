@@ -88,26 +88,15 @@ export function initSync() {
   console.info('[sync] connected. room:', roomId, 'client:', clientId);
 }
 
+/* Every listener applies its FIRST snapshot unconditionally (hydration), then
+   suppresses our own `_by === clientId` echoes. This matters on reload: the
+   clientId persists in sessionStorage but local state is gone, so without
+   hydration we'd skip our own data forever and the board would look wiped. */
+
 function listenTokens() {
-  let seeded = false;
+  let hydrated = false;
   onValue(pathRef('tokens'), snap => {
-    const val = snap.val();
-
-    // First snapshot of an empty room: seed it from our local tokens (e.g. the
-    // demo tokens) so they become shared instead of being wiped by the
-    // authoritative reconcile below. Runs once, before anyone has loaded/edited.
-    if (!seeded) {
-      seeded = true;
-      if (val == null && window.getLocalTokens) {
-        const local = window.getLocalTokens();
-        if (local.length) {
-          for (const t of local) pushToken(t);
-          return; // the next snapshot will include them
-        }
-      }
-    }
-
-    const map = val || {};
+    const map = snap.val() || {};
     const curIds = new Set();
     let maxId = 0;
     for (const key in map) {
@@ -117,7 +106,7 @@ function listenTokens() {
       if (!Number.isFinite(id)) continue;
       curIds.add(id);
       if (id > maxId) maxId = id;
-      if (t._by === clientId) continue;            // our own write — skip
+      if (hydrated && t._by === clientId) continue;   // our own live echo — skip
       if (window.upsertRemoteToken) window.upsertRemoteToken(t);
     }
     // Room is authoritative: drop any LOCAL token that isn't in the snapshot.
@@ -128,14 +117,17 @@ function listenTokens() {
         if (!curIds.has(id)) window.removeTokenLocal(id);
       }
     }
+    hydrated = true;
     if (window.bumpNextId) window.bumpNextId(maxId + 1);
   }, err => console.warn('[sync] tokens listener:', err));
 }
 
 function listenGrid() {
+  let hydrated = false;
   onValue(pathRef('grid'), snap => {
     const g = snap.val();
-    if (g && g._by === clientId) return;
+    if (hydrated && g && g._by === clientId) return;
+    hydrated = true;
     if (window.applyRemoteGrid) window.applyRemoteGrid(g);
     // setGrid() wipes obstacles, so re-apply the last known set afterwards.
     if (window.applyRemoteObstacles) window.applyRemoteObstacles(lastObstacles);
@@ -143,26 +135,32 @@ function listenGrid() {
 }
 
 function listenObstacles() {
+  let hydrated = false;
   onValue(pathRef('obstacles'), snap => {
     const o = snap.val();
     lastObstacles = (o && Array.isArray(o.cells)) ? o.cells : [];
-    if (o && o._by === clientId) return;
+    if (hydrated && o && o._by === clientId) return;
+    hydrated = true;
     if (window.applyRemoteObstacles) window.applyRemoteObstacles(lastObstacles);
   }, err => console.warn('[sync] obstacles listener:', err));
 }
 
 function listenBackground() {
+  let hydrated = false;
   onValue(pathRef('background'), snap => {
     const b = snap.val();
-    if (b && b._by === clientId) return;
+    if (hydrated && b && b._by === clientId) return;
+    hydrated = true;
     if (window.applyRemoteBackground) window.applyRemoteBackground(b ? b.data : null);
   }, err => console.warn('[sync] background listener:', err));
 }
 
 function listenDrawing() {
+  let hydrated = false;
   onValue(pathRef('drawing'), snap => {
     const d = snap.val();
-    if (d && d._by === clientId) return;
+    if (hydrated && d && d._by === clientId) return;
+    hydrated = true;
     if (window.restoreDrawingFromDataURL) window.restoreDrawingFromDataURL(d ? d.data : null);
   }, err => console.warn('[sync] drawing listener:', err));
 }
