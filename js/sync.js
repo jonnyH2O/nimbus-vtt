@@ -182,11 +182,35 @@ export function pushObstacles(obstacles) {
   set(pathRef('obstacles'), { cells: obstacles || [], _by: clientId }).catch(warn);
 }
 
+/* Replace the entire room in one atomic write. Used when a local save file is
+   loaded so every connected client adopts the loaded board — and any stale
+   tokens / drawing / background left in the room are dropped, not merged.
+   `view` is intentionally omitted: the camera is per-person, not shared. */
+export function pushFullState(state) {
+  if (!ready() || !state) return;
+  const tokensObj = {};
+  for (const t of (state.tokens || [])) {
+    if (t && t.id != null) tokensObj[t.id] = { ...t, _by: clientId };
+  }
+  set(ref(db, 'rooms/' + roomId), {
+    tokens:     tokensObj,
+    grid:       state.grid ? { ...state.grid, _by: clientId } : null,
+    obstacles:  { cells: state.obstacles || [], _by: clientId },
+    background: state.background ? { data: state.background, _by: clientId } : null,
+    drawing:    state.drawing ? { data: state.drawing, _by: clientId } : null
+  }).catch(warn);
+}
+
+/* True only when actually connected to a room (lets callers prompt before a
+   destructive room-wide write, but stay silent when offline/single-player). */
+export function isConnected() { return ready(); }
+
 /* ───────── Bridge to the classic (non-module) scripts ───────── */
 
 if (typeof window !== 'undefined') {
   window.Sync = {
     initSync, pushToken, removeToken,
-    pushGrid, pushBackground, pushDrawing, pushObstacles
+    pushGrid, pushBackground, pushDrawing, pushObstacles,
+    pushFullState, isConnected
   };
 }
