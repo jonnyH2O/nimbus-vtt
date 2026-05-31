@@ -141,4 +141,20 @@ function restoreBoard(state) {
   }
 
   restoreHint();
+
+  // If connected to a shared room, offer to push the loaded board to everyone.
+  // This is a full room replace (stale tokens/drawing/etc. are dropped). The
+  // camera (view) is deliberately not broadcast so it won't move other players.
+  if (window.Sync && window.Sync.isConnected && window.Sync.isConnected()) {
+    if (confirm('Load and replace the shared board for everyone in this room?')) {
+      window.Sync.pushFullState({
+        tokens:     Object.values(tokens).map(serializeToken),
+        grid:       currentGridState(),
+        obstacles:  Array.from(obstacles),
+        background: (state.background && typeof state.background.image === 'string')
+                      ? state.background.image : null,
+        drawing:    typeof state.drawing === 'string' ? state.drawing : null
+      });
+    }
+  }
 }
