@@ -1,19 +1,34 @@
 /* ───────── Drawing layer (freehand + shapes + eraser + undo/redo) ───────── */
 
-const DRAW_CANVAS_SIZE   = 4000;
-const DRAW_CANVAS_OFFSET = 2000; // world (0,0) → canvas pixel (2000,2000)
+const DRAW_CANVAS_SIZE   = 4000;   // default buffer size when no background is loaded
+const DRAW_CANVAS_OFFSET = 2000;   // default world (0,0) → canvas pixel (2000,2000)
+const DRAW_PAD     = 300;          // world-px drawable margin kept around the background
+const DRAW_MAX_DIM = 8192;         // cap on canvas buffer dimension (browser canvas limits)
 const MAX_UNDO = 50;
 
 const drawingCanvas = document.getElementById('drawing-layer');
 const drawingCtx    = drawingCanvas.getContext('2d');
 
+/* Live drawing-canvas geometry. The canvas tracks the background: it is sized and
+   positioned to cover the loaded image (see updateDrawingGeometryForBackground).
+   A world point (wx,wy) maps to canvas pixel (wx + drawOffX, wy + drawOffY); the
+   canvas top-left therefore sits at world (-drawOffX, -drawOffY). Strokes are stored
+   in WORLD coordinates so they survive geometry changes (the canvas is only the
+   render target, not the source of truth). */
+let drawW    = DRAW_CANVAS_SIZE;
+let drawH    = DRAW_CANVAS_SIZE;
+let drawOffX = DRAW_CANVAS_OFFSET;
+let drawOffY = DRAW_CANVAS_OFFSET;
+
 let currentDrawTool  = null;        // null | 'pen' | 'rect' | 'circle' | 'line' | 'eraser'
 let currentDrawColor = '#e04040';
 let currentDrawSize  = 6;
 
-let drawingStrokes       = [];
+let drawingStrokes       = [];     // strokes in WORLD coordinates
 let drawingUndoneStrokes = [];
-let drawingBaseImage     = null;   // HTMLCanvasElement | null
+let drawingBaseImage     = null;   // HTMLCanvasElement | null — flattened older strokes
+let drawingSourceURL     = null;   // last full-canvas PNG applied (remote/loaded); kept so
+                                   // it can be repainted if the canvas geometry changes
 
 let drawActive        = false;
 let drawStartPt       = null;
@@ -30,7 +45,8 @@ function setDrawTool(tool) {
 
 function exitDrawingMode() {
   if (drawActive && drawShapeSnapshot) {
-    drawingCtx.clearRect(0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE);
+    drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+    drawingCtx.clearRect(0, 0, drawW, drawH);
     drawingCtx.drawImage(drawShapeSnapshot, 0, 0);
     drawShapeSnapshot = null;
   }
@@ -62,9 +78,74 @@ function setDrawSize(size) {
   currentDrawSize = Number(size) || 6;
 }
 
-function screenToDrawCanvas(cx, cy) {
-  const w = screenToWorld(cx, cy);
-  return { x: w.x + DRAW_CANVAS_OFFSET, y: w.y + DRAW_CANVAS_OFFSET };
+// Pointer → world coordinates (strokes are stored in world space; the canvas
+// translation in drawStrokeOnContext maps them to pixels at render time).
+function screenToDrawWorld(cx, cy) {
+  return screenToWorld(cx, cy);
+}
+
+/* ───── Canvas geometry: track the background ───── */
+
+// Size + position the drawing canvas to cover a background whose displayed box is
+// boxW × boxH (anchored at world origin). Pass 0×0 (no background) for the default
+// origin-centred window. Called from background.js whenever the background changes.
+function updateDrawingGeometryForBackground(boxW, boxH) {
+  if (boxW > 0 && boxH > 0) {
+    applyDrawingGeometry(
+      Math.min(DRAW_MAX_DIM, Math.round(boxW) + DRAW_PAD * 2),
+      Math.min(DRAW_MAX_DIM, Math.round(boxH) + DRAW_PAD * 2),
+      DRAW_PAD, DRAW_PAD);
+  } else {
+    applyDrawingGeometry(DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE,
+                         DRAW_CANVAS_OFFSET, DRAW_CANVAS_OFFSET);
+  }
+}
+
+// Resize/reposition the canvas buffer and repaint the existing drawing into it.
+function applyDrawingGeometry(newW, newH, newOffX, newOffY) {
+  if (newW === drawW && newH === drawH && newOffX === drawOffX && newOffY === drawOffY) return;
+
+  const dx = newOffX - drawOffX, dy = newOffY - drawOffY;
+  const oldBase = drawingBaseImage;
+
+  drawW = newW; drawH = newH; drawOffX = newOffX; drawOffY = newOffY;
+  drawingCanvas.width  = newW;          // resizing clears the buffer + resets the transform
+  drawingCanvas.height = newH;
+  drawingCanvas.style.width  = newW + 'px';
+  drawingCanvas.style.height = newH + 'px';
+  drawingCanvas.style.left   = (-newOffX) + 'px';
+  drawingCanvas.style.top    = (-newOffY) + 'px';
+
+  // A drawing applied from a PNG (remote/loaded) whose true geometry may not have
+  // been known when it was painted (load races background) is authoritative — repaint
+  // it from source at the corrected geometry. Locally-drawn content (has strokes, or a
+  // base flattened in a known geometry) just shifts by the pure pixel translation.
+  if (drawingSourceURL && drawingStrokes.length === 0) {
+    drawingBaseImage = null;
+    paintSourceURL(drawingSourceURL);
+    return;
+  }
+  if (oldBase) {
+    const nb = document.createElement('canvas');
+    nb.width = newW; nb.height = newH;
+    nb.getContext('2d').drawImage(oldBase, dx, dy);
+    drawingBaseImage = nb;
+  }
+  redrawAll();
+}
+
+// Paint a full-canvas PNG into a fresh base image at the current geometry, then redraw.
+function paintSourceURL(dataURL) {
+  const img = new Image();
+  img.onload = () => {
+    const b = document.createElement('canvas');
+    b.width = drawW; b.height = drawH;
+    b.getContext('2d').drawImage(img, 0, 0);
+    drawingBaseImage = b;
+    redrawAll();
+  };
+  img.onerror = () => {};
+  img.src = dataURL;
 }
 
 /* ───── Pointer handlers (called from board.js) ───── */
@@ -74,7 +155,7 @@ function drawDown(e) {
   e.preventDefault();
   canvasWrap.setPointerCapture(e.pointerId);
   drawActive = true;
-  const pt = screenToDrawCanvas(e.clientX, e.clientY);
+  const pt = screenToDrawWorld(e.clientX, e.clientY);
   drawStartPt = pt;
 
   if (currentDrawTool === 'pen' || currentDrawTool === 'eraser') {
@@ -82,31 +163,35 @@ function drawDown(e) {
     applyFreehandSegment(pt, pt);
   } else {
     drawShapeSnapshot = document.createElement('canvas');
-    drawShapeSnapshot.width  = DRAW_CANVAS_SIZE;
-    drawShapeSnapshot.height = DRAW_CANVAS_SIZE;
+    drawShapeSnapshot.width  = drawW;
+    drawShapeSnapshot.height = drawH;
     drawShapeSnapshot.getContext('2d').drawImage(drawingCanvas, 0, 0);
   }
 }
 
 function drawMove(e) {
   if (!drawActive) return;
-  const pt = screenToDrawCanvas(e.clientX, e.clientY);
+  const pt = screenToDrawWorld(e.clientX, e.clientY);
 
   if (currentDrawTool === 'pen' || currentDrawTool === 'eraser') {
     const prev = drawCurrentPoints[drawCurrentPoints.length - 1];
     drawCurrentPoints.push(pt);
     applyFreehandSegment(prev, pt);
   } else {
-    drawingCtx.clearRect(0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE);
+    drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+    drawingCtx.clearRect(0, 0, drawW, drawH);
     drawingCtx.drawImage(drawShapeSnapshot, 0, 0);
+    drawingCtx.save();
+    drawingCtx.setTransform(1, 0, 0, 1, drawOffX, drawOffY);
     drawShapeOnto(drawingCtx, currentDrawTool, drawStartPt, pt, currentDrawColor, currentDrawSize);
+    drawingCtx.restore();
   }
 }
 
 function drawUp(e) {
   if (!drawActive) return;
   drawActive = false;
-  const pt = screenToDrawCanvas(e.clientX, e.clientY);
+  const pt = screenToDrawWorld(e.clientX, e.clientY);
 
   if (currentDrawTool === 'pen') {
     pushStroke({ type: 'pen', color: currentDrawColor, width: currentDrawSize, points: drawCurrentPoints });
@@ -132,6 +217,7 @@ function drawUp(e) {
 
 function applyFreehandSegment(a, b) {
   drawingCtx.save();
+  drawingCtx.setTransform(1, 0, 0, 1, drawOffX, drawOffY);
   drawingCtx.lineCap  = 'round';
   drawingCtx.lineJoin = 'round';
   drawingCtx.lineWidth = currentDrawSize;
@@ -177,7 +263,15 @@ function drawShapeOnto(ctx, kind, a, b, color, width) {
 }
 
 function drawStrokeOnContext(ctx, stroke) {
+  if (stroke.type === 'clear') {                 // pixel-space full-buffer wipe
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, drawW, drawH);
+    ctx.restore();
+    return;
+  }
   ctx.save();
+  ctx.setTransform(1, 0, 0, 1, drawOffX, drawOffY);   // world → pixel translation
   ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
   ctx.lineWidth = stroke.width || 1;
@@ -196,8 +290,6 @@ function drawStrokeOnContext(ctx, stroke) {
     if (pts.length === 1) ctx.lineTo(pts[0].x + 0.01, pts[0].y + 0.01);
     else for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
     ctx.stroke();
-  } else if (stroke.type === 'clear') {
-    ctx.clearRect(0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE);
   } else {
     drawShapeOnto(ctx, stroke.type,
       { x: stroke.x0, y: stroke.y0 },
@@ -208,7 +300,8 @@ function drawStrokeOnContext(ctx, stroke) {
 }
 
 function redrawAll() {
-  drawingCtx.clearRect(0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE);
+  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawingCtx.clearRect(0, 0, drawW, drawH);
   if (drawingBaseImage) drawingCtx.drawImage(drawingBaseImage, 0, 0);
   for (const s of drawingStrokes) drawStrokeOnContext(drawingCtx, s);
 }
@@ -219,8 +312,8 @@ function pushStroke(stroke) {
   while (drawingStrokes.length > MAX_UNDO) {
     if (!drawingBaseImage) {
       drawingBaseImage = document.createElement('canvas');
-      drawingBaseImage.width  = DRAW_CANVAS_SIZE;
-      drawingBaseImage.height = DRAW_CANVAS_SIZE;
+      drawingBaseImage.width  = drawW;
+      drawingBaseImage.height = drawH;
     }
     drawStrokeOnContext(drawingBaseImage.getContext('2d'), drawingStrokes.shift());
   }
@@ -257,7 +350,7 @@ function syncDrawing() {
 /* ───── Save / Load hooks ───── */
 
 function getDrawingDataURL() {
-  if (drawingStrokes.length === 0 && !drawingBaseImage) return null;
+  if (drawingStrokes.length === 0 && !drawingBaseImage && !drawingSourceURL) return null;
   return drawingCanvas.toDataURL('image/png');
 }
 
@@ -265,19 +358,13 @@ function restoreDrawingFromDataURL(dataURL) {
   drawingStrokes = [];
   drawingUndoneStrokes = [];
   drawingBaseImage = null;
-  drawingCtx.clearRect(0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE);
-  if (!dataURL || typeof dataURL !== 'string') return;
-  const img = new Image();
-  img.onload = () => {
-    drawingBaseImage = document.createElement('canvas');
-    drawingBaseImage.width  = DRAW_CANVAS_SIZE;
-    drawingBaseImage.height = DRAW_CANVAS_SIZE;
-    drawingBaseImage.getContext('2d').drawImage(img, 0, 0);
-    drawingCtx.clearRect(0, 0, DRAW_CANVAS_SIZE, DRAW_CANVAS_SIZE);
-    drawingCtx.drawImage(drawingBaseImage, 0, 0);
-  };
-  img.onerror = () => {};
-  img.src = dataURL;
+  drawingSourceURL = (dataURL && typeof dataURL === 'string') ? dataURL : null;
+  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawingCtx.clearRect(0, 0, drawW, drawH);
+  // The canvas geometry is set from the background (restored/synced separately). If the
+  // background arrives after this, applyDrawingGeometry repaints the PNG at the corrected
+  // geometry via paintSourceURL — so the drawing lines up regardless of arrival order.
+  if (drawingSourceURL) paintSourceURL(drawingSourceURL);
 }
 
 /* ───── Init (keyboard shortcuts + initial color) ───── */

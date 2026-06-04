@@ -280,7 +280,7 @@ function makeResizable(handle, el, id) {
   handle.addEventListener('pointermove', e => {
     if (!active) return;
     const delta = (e.clientX - startX) / view.zoom;
-    const newSize = Math.max(28, Math.min(130, startSize + delta));
+    const newSize = Math.max(28, Math.min(200, startSize + delta));
     tokens[id].size = newSize;
     const ring = el.querySelector('.token-ring');
     ring.style.width  = newSize + 'px';

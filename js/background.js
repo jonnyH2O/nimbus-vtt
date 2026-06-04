@@ -63,6 +63,11 @@ function applyBgTransform() {
   img.style.top  = ((boxH - bgNaturalH) / 2) + 'px';
   img.style.transformOrigin = 'center';
   img.style.transform = `rotate(${r}deg)`;
+  // Keep the drawing layer linked to the background: size/position it to cover the
+  // image's displayed box so the whole map is drawable.
+  if (typeof updateDrawingGeometryForBackground === 'function') {
+    updateDrawingGeometryForBackground(boxW, boxH);
+  }
 }
 
 function rotateBG() {
@@ -78,6 +83,10 @@ function clearBG() {
   bgRotation = 0;
   bgNaturalW = 0;
   bgNaturalH = 0;
+  // No background → drawing layer reverts to the default origin-centred window.
+  if (typeof updateDrawingGeometryForBackground === 'function') {
+    updateDrawingGeometryForBackground(0, 0);
+  }
 }
 
 async function captureBackgroundState() {
