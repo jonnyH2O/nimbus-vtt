@@ -128,6 +128,14 @@
       </div>
     </div>
     <div class="panel-row">
+      <span class="panel-row-label">Room</span>
+      <div class="input-row">
+        <input type="text" id="room-input" placeholder="room code" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        <button id="btn-copy-room" onclick="copyRoom()" title="Copy room code">⧉</button>
+      </div>
+      <button onclick="goToRoom()">→ Go to Room</button>
+    </div>
+    <div class="panel-row">
       <span class="panel-row-label">Board</span>
       <button onclick="saveBoard()">💾 Save</button>
       <button onclick="document.getElementById('load-input').click()">📂 Load</button>

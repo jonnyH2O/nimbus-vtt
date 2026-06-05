@@ -121,6 +121,67 @@ function restoreTheme() {
   if (sel) sel.value = saved;
 }
 
+/* ───────── Room (multiplayer) ───────── */
+
+// Current room id — prefer the live value from the sync module, fall back to
+// the URL so it works before sync has loaded (or when running offline).
+function currentRoomId() {
+  if (window.Sync && window.Sync.getRoomId) {
+    const r = window.Sync.getRoomId();
+    if (r) return r;
+  }
+  return new URLSearchParams(location.search).get('room') || '';
+}
+
+// Reduce a raw code, a pasted share URL, or messy input to the canonical
+// lowercase-alphanumeric room code (matches genRoomId()'s alphabet in sync.js).
+function parseRoomCode(raw) {
+  const s = (raw || '').trim();
+  const m = s.match(/[?&]room=([a-z0-9]+)/i);
+  if (m) return m[1].toLowerCase();
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function refreshRoomInput() {
+  const input = document.getElementById('room-input');
+  if (input) input.value = currentRoomId();
+}
+
+async function copyRoom() {
+  const code = currentRoomId();
+  if (!code) return;
+  const btn = document.getElementById('btn-copy-room');
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(code);
+    ok = true;
+  } catch (_) {
+    // Fallback for non-secure contexts / older browsers: select + execCommand
+    const input = document.getElementById('room-input');
+    if (input) {
+      input.focus();
+      input.select();
+      try { ok = document.execCommand('copy'); } catch (_) {}
+    }
+  }
+  if (btn) {
+    btn.textContent = ok ? '✓' : '⧉';
+    setTimeout(() => { btn.textContent = '⧉'; }, 1200);
+  }
+}
+
+function goToRoom() {
+  const input = document.getElementById('room-input');
+  if (!input) return;
+  const code = parseRoomCode(input.value);
+  if (!code) { refreshRoomInput(); return; }   // nothing usable — reset the field
+  if (code === currentRoomId()) return;        // already in this room
+  const params = new URLSearchParams(location.search);
+  params.set('room', code);
+  // Reload into the new room; sync re-runs init against ?room=<code>.
+  location.search = params.toString();
+}
+
 /* ───────── Side panels ───────── */
 
 let openPanel = null;
@@ -144,6 +205,7 @@ function togglePanel(name) {
   document.body.classList.toggle('grid-panel-open', openPanel === 'grid');
   if (openPanel !== 'grid') exitObstacleEdit();
   if (openPanel !== 'drawing') exitDrawingMode();
+  if (openPanel === 'settings') refreshRoomInput();
 }
 
 /* ───────── Background context menu ───────── */
