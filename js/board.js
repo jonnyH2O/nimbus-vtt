@@ -36,6 +36,10 @@ function fitToView(w, h) {
 let spaceHeld = false;
 let panActive = false, panMoved = false, panStartX = 0, panStartY = 0, panOrigX = 0, panOrigY = 0;
 
+/* Pinch (two-finger zoom + pan): track active touch points by id */
+const touchPts = new Map();
+let pinchActive = false, pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
+
 function endPan(e) {
   if (gridDrawMode) { gridDrawUp(e); return; }
   if (obstaclePaintActive) { obstaclePaintUp(e); return; }
@@ -43,6 +47,62 @@ function endPan(e) {
   if (!panActive) return;
   panActive = false;
   canvasWrap.classList.remove('panning');
+}
+
+/* Begin a pinch once two fingers are down — cancel any in-progress pan */
+function startPinch() {
+  pinchActive = true;
+  panActive = false;
+  canvasWrap.classList.remove('panning');
+  const [a, b] = [...touchPts.values()];
+  pinchDist = Math.hypot(b.x - a.x, b.y - a.y);
+  pinchMidX = (a.x + b.x) / 2;
+  pinchMidY = (a.y + b.y) / 2;
+}
+
+/* Update zoom (distance ratio) and pan (midpoint drift), anchored at the
+   midpoint — same anchor math as the wheel handler. */
+function pinchMove() {
+  if (touchPts.size < 2) return;
+  const [a, b] = [...touchPts.values()];
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  const r = canvasWrap.getBoundingClientRect();
+  const cx = midX - r.left;
+  const cy = midY - r.top;
+  if (pinchDist > 0) {
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * (dist / pinchDist)));
+    const wx = (cx - view.x) / view.zoom;
+    const wy = (cy - view.y) / view.zoom;
+    view.zoom = newZoom;
+    view.x = cx - wx * newZoom;
+    view.y = cy - wy * newZoom;
+  }
+  view.x += midX - pinchMidX;
+  view.y += midY - pinchMidY;
+  applyView();
+  pinchDist = dist;
+  pinchMidX = midX;
+  pinchMidY = midY;
+}
+
+/* A touch lifted: drop it, end the pinch, and hand off to one-finger pan
+   if a single finger remains (so the view doesn't jump). */
+function handleTouchUp(e) {
+  touchPts.delete(e.pointerId);
+  if (pinchActive) {
+    if (touchPts.size === 1) {
+      const [p] = [...touchPts.values()];
+      pinchActive = false;
+      panActive = true; panMoved = true;
+      panStartX = p.x; panStartY = p.y;
+      panOrigX = view.x; panOrigY = view.y;
+      return;
+    }
+    pinchActive = false;
+  }
+  endPan(e);
 }
 
 /* ───────── Theme ───────── */
@@ -145,6 +205,11 @@ function initBoard() {
 
   /* Pan — drag empty canvas with left or middle button */
   canvasWrap.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') {
+      touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchPts.size === 2) { startPinch(); return; }
+    }
+    if (pinchActive) return;
     if (e.target.closest('.token')) return;
     if (!spaceHeld) {
       if (gridDrawMode) { gridDrawDown(e); return; }
@@ -161,6 +226,10 @@ function initBoard() {
     canvasWrap.setPointerCapture(e.pointerId);
   });
   canvasWrap.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && touchPts.has(e.pointerId)) {
+      touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinchActive) { pinchMove(); return; }
     if (gridDrawMode) { gridDrawMove(e); return; }
     if (obstaclePaintActive) { obstaclePaintMove(e); return; }
     if (drawActive) { drawMove(e); return; }
@@ -176,8 +245,8 @@ function initBoard() {
     view.y = panOrigY + dy;
     applyView();
   });
-  canvasWrap.addEventListener('pointerup',     endPan);
-  canvasWrap.addEventListener('pointercancel', endPan);
+  canvasWrap.addEventListener('pointerup',     e => { if (e.pointerType === 'touch') { handleTouchUp(e); return; } endPan(e); });
+  canvasWrap.addEventListener('pointercancel', e => { if (e.pointerType === 'touch') { handleTouchUp(e); return; } endPan(e); });
 
   /* Background context menu */
   document.getElementById('main').addEventListener('contextmenu', e => {
