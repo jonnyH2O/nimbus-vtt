@@ -31,13 +31,24 @@ function addToken() {
   const center = screenToWorld(wrap.clientWidth / 2, wrap.clientHeight / 2);
   const x = center.x + (Math.random() - 0.5) * 140;
   const y = center.y + (Math.random() - 0.5) * 100;
-  spawnToken({ id: nextId++, name, color, image: currentTokenImage, x, y, size: 54 });
+  const id = nextId++;
+  spawnToken({ id, name, color, image: currentTokenImage, x, y, size: 54 });
   hint.style.display = 'none';
+  syncToken(id);
 }
 
 function spawnToken(data) {
   const { id, name, color, image, x, y, size } = data;
   tokens[id] = { ...data };
+
+  // Rendered vs. target position. They start equal so a freshly spawned token
+  // appears exactly in place; only a remote update sets the target ahead of the
+  // rendered position, which the animation loop then eases toward (see
+  // animateRemoteTokens). x/y remain the authoritative logical position.
+  tokens[id].renderX = x;
+  tokens[id].renderY = y;
+  tokens[id].targetX = x;
+  tokens[id].targetY = y;
 
   const el = document.createElement('div');
   el.className = 'token';
@@ -80,6 +91,83 @@ function spawnToken(data) {
   el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showCtx(e, id); });
 }
 
+/* ───────── Sync helpers (push local changes + apply remote ones) ───────── */
+
+function serializeToken(t) {
+  return {
+    id: t.id, name: t.name, type: t.type ?? null,
+    color: t.color, image: t.image ?? null,
+    x: t.x, y: t.y, size: t.size
+  };
+}
+
+// Push a single token's current state to the shared room (no-op if offline).
+function syncToken(id) {
+  if (window.Sync && tokens[id]) window.Sync.pushToken(serializeToken(tokens[id]));
+}
+
+function normalizeRemoteToken(d) {
+  return {
+    id:    Number(d.id),
+    name:  String(d.name ?? 'Token'),
+    type:  d.type ?? null,
+    color: String(d.color ?? '#888888'),
+    image: typeof d.image === 'string' ? d.image : null,
+    x:     Number(d.x) || 0,
+    y:     Number(d.y) || 0,
+    size:  Number(d.size) || 54
+  };
+}
+
+// Called by sync.js when a remote token is added or changed.
+function upsertRemoteToken(data) {
+  const t = normalizeRemoteToken(data);
+  if (!Number.isFinite(t.id)) return;
+  const el = tokenLayer.querySelector(`[data-id="${t.id}"]`);
+  if (!tokens[t.id] || !el) { spawnToken(t); hint.style.display = 'none'; return; }
+
+  Object.assign(tokens[t.id], t);   // updates x/y + visual props (not render*)
+  // Don't move the element here — set the lerp target and let animateRemoteTokens
+  // ease renderX/renderY (and thus the element) toward it, so remote moves glide
+  // instead of teleporting.
+  tokens[t.id].targetX = t.x;
+  tokens[t.id].targetY = t.y;
+  const ring = el.querySelector('.token-ring');
+  if (ring) {
+    ring.style.width  = t.size + 'px';
+    ring.style.height = t.size + 'px';
+    ring.style.backgroundColor = t.color;
+    if (t.image) {
+      ring.style.backgroundImage    = `url("${t.image}")`;
+      ring.style.backgroundSize     = 'cover';
+      ring.style.backgroundPosition = 'center';
+    } else {
+      ring.style.backgroundImage = '';
+    }
+  }
+  const label = el.querySelector('.token-label');
+  if (label) label.textContent = t.name;
+}
+
+// Called by sync.js when a remote token is removed.
+function removeTokenLocal(id) {
+  const el = tokenLayer.querySelector(`[data-id="${id}"]`);
+  if (el) el.remove();
+  delete tokens[id];
+  if (selectedId === id) selectedId = null;
+  if (ctxTarget === id) ctxTarget = null;
+  if (Object.keys(tokens).length === 0) hint.style.display = '';
+}
+
+// Keep local id allocation ahead of ids seen from other clients.
+function bumpNextId(n) {
+  if (Number.isFinite(n) && n > nextId) nextId = n;
+}
+
+// Used by sync.js to reconcile against the room as the source of truth: any
+// local token not present in the room snapshot is removed.
+function getLocalTokenIds() { return Object.keys(tokens).map(Number); }
+
 function select(id) {
   document.querySelectorAll('.token').forEach(t => t.classList.remove('selected'));
   selectedId = id;
@@ -99,6 +187,12 @@ function makeDraggable(el, id) {
     e.preventDefault();
     e.stopPropagation();
     el.setPointerCapture(e.pointerId);
+    // If a remote lerp is still in flight, adopt the on-screen position and
+    // cancel the lerp so grabbing the token doesn't make it jump.
+    tokens[id].x = tokens[id].renderX;
+    tokens[id].y = tokens[id].renderY;
+    tokens[id].targetX = tokens[id].renderX;
+    tokens[id].targetY = tokens[id].renderY;
     const w = screenToWorld(e.clientX, e.clientY);
     ox = w.x - tokens[id].x;
     oy = w.y - tokens[id].y;
@@ -122,6 +216,12 @@ function makeDraggable(el, id) {
     const y = w.y - oy;
     tokens[id].x = x;
     tokens[id].y = y;
+    // Keep render/target pinned to the live drag position so the animation loop
+    // stays converged and never tugs against an instant local drag.
+    tokens[id].renderX = x;
+    tokens[id].renderY = y;
+    tokens[id].targetX = x;
+    tokens[id].targetY = y;
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
 
@@ -148,6 +248,10 @@ function makeDraggable(el, id) {
       const snapped = snapPoint(tokens[id].x, tokens[id].y);
       tokens[id].x = snapped.x;
       tokens[id].y = snapped.y;
+      tokens[id].renderX = snapped.x;
+      tokens[id].renderY = snapped.y;
+      tokens[id].targetX = snapped.x;
+      tokens[id].targetY = snapped.y;
       el.style.left = snapped.x + 'px';
       el.style.top  = snapped.y + 'px';
     }
@@ -156,6 +260,7 @@ function makeDraggable(el, id) {
     el.classList.remove('dragging');
     el.classList.remove('lifted');
     clearPath();
+    syncToken(id);
   };
   el.addEventListener('pointerup',     endDrag);
   el.addEventListener('pointercancel', endDrag);
@@ -175,14 +280,14 @@ function makeResizable(handle, el, id) {
   handle.addEventListener('pointermove', e => {
     if (!active) return;
     const delta = (e.clientX - startX) / view.zoom;
-    const newSize = Math.max(28, Math.min(130, startSize + delta));
+    const newSize = Math.max(28, Math.min(200, startSize + delta));
     tokens[id].size = newSize;
     const ring = el.querySelector('.token-ring');
     ring.style.width  = newSize + 'px';
     ring.style.height = newSize + 'px';
   });
 
-  handle.addEventListener('pointerup',    () => { active = false; });
+  handle.addEventListener('pointerup',    () => { active = false; syncToken(id); });
   handle.addEventListener('pointercancel',() => { active = false; });
 }
 
@@ -206,6 +311,7 @@ function ctxRename() {
   tokens[ctxTarget].name = n;
   const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
   if (el) el.querySelector('.token-label').textContent = n;
+  syncToken(ctxTarget);
 }
 
 function ctxRecolor() {
@@ -214,11 +320,13 @@ function ctxRecolor() {
   const inp = document.createElement('input');
   inp.type = 'color'; inp.value = tokens[ctxTarget].color;
   inp.style.display = 'none'; document.body.appendChild(inp);
+  const targetId = ctxTarget;
   inp.click();
   inp.addEventListener('change', () => {
-    tokens[ctxTarget].color = inp.value;
-    const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
+    tokens[targetId].color = inp.value;
+    const el = tokenLayer.querySelector(`[data-id="${targetId}"]`);
     if (el) el.querySelector('.token-ring').style.backgroundColor = inp.value;
+    syncToken(targetId);
   });
   inp.addEventListener('blur', () => { try { document.body.removeChild(inp); } catch(e) {} });
 }
@@ -232,15 +340,18 @@ function ctxChangePicture() {
 function ctxDelete() {
   hideCtx();
   if (ctxTarget == null) return;
+  const removedId = ctxTarget;
   const el = tokenLayer.querySelector(`[data-id="${ctxTarget}"]`);
   if (el) el.remove();
   delete tokens[ctxTarget];
   ctxTarget = null; selectedId = null;
   if (Object.keys(tokens).length === 0) hint.style.display = '';
+  if (window.Sync) window.Sync.removeToken(removedId);
 }
 
 function clearAll() {
   if (!confirm('Remove all tokens?')) return;
+  if (window.Sync) for (const id of Object.keys(tokens)) window.Sync.removeToken(Number(id));
   tokenLayer.innerHTML = '';
   tokens = {}; selectedId = null;
   hint.style.display = '';
@@ -290,6 +401,7 @@ function applyImageToToken(id, dataURL) {
   ring.style.backgroundImage    = `url("${dataURL}")`;
   ring.style.backgroundSize     = 'cover';
   ring.style.backgroundPosition = 'center';
+  syncToken(id);
 }
 
 /* ───────── Crop modal ───────── */
@@ -397,6 +509,39 @@ function closeCropModal() {
   document.getElementById('crop-modal').classList.remove('open');
 }
 
+/* ───────── Remote token motion (lerp) ─────────
+   Local moves write renderX/renderY straight to the token (instant). Remote
+   updates only move targetX/targetY (see upsertRemoteToken), so this loop eases
+   the rendered position toward the target each frame, gliding tokens that other
+   players moved instead of teleporting them. Converged tokens are skipped, so
+   single-player / offline play is visually unchanged. */
+
+const REMOTE_LERP_FACTOR = 0.15;
+const LERP_SNAP_EPSILON = 0.5;   // within this many px, jump to target and stop
+
+function animateRemoteTokens() {
+  for (const id in tokens) {
+    const t = tokens[id];
+    if (t.renderX === undefined) continue;
+    const dx = t.targetX - t.renderX;
+    const dy = t.targetY - t.renderY;
+    if (dx === 0 && dy === 0) continue;   // converged — leave it alone
+    if (Math.abs(dx) < LERP_SNAP_EPSILON && Math.abs(dy) < LERP_SNAP_EPSILON) {
+      t.renderX = t.targetX;
+      t.renderY = t.targetY;
+    } else {
+      t.renderX += dx * REMOTE_LERP_FACTOR;
+      t.renderY += dy * REMOTE_LERP_FACTOR;
+    }
+    const el = tokenLayer.querySelector(`[data-id="${id}"]`);
+    if (el) {
+      el.style.left = t.renderX + 'px';
+      el.style.top  = t.renderY + 'px';
+    }
+  }
+  requestAnimationFrame(animateRemoteTokens);
+}
+
 /* ───────── Init ───────── */
 
 function initTokens() {
@@ -407,4 +552,6 @@ function initTokens() {
       cancelCrop();
     }
   });
+
+  requestAnimationFrame(animateRemoteTokens);
 }

@@ -91,6 +91,8 @@ function gridDrawUp(e) {
   restoreHint();
   if (r.side >= 5) {
     setGrid(r.side, r.x, r.y);
+    syncGrid();
+    syncObstacles();   // setGrid cleared obstacles; broadcast the empty set
   }
 }
 
@@ -161,6 +163,7 @@ function snapPoint(wx, wy) {
 function toggleSnap() {
   snapToGrid = !snapToGrid;
   updateSnapButton();
+  syncGrid();
 }
 function updateSnapButton() {
   const btn = document.getElementById('btn-snap-toggle');
@@ -170,6 +173,50 @@ function updateSnapButton() {
 
 function initGrid() {
   updateSnapButton();
+}
+
+/* ───────── Sync helpers (push local changes + apply remote ones) ───────── */
+
+function currentGridState() {
+  return {
+    cellSize: gridCellSize,
+    offsetX:  gridOriginX,
+    offsetY:  gridOriginY,
+    visible:  gridCellSize > 0,
+    snap:     snapToGrid
+  };
+}
+
+function syncGrid()      { if (window.Sync) window.Sync.pushGrid(currentGridState()); }
+function syncObstacles() { if (window.Sync) window.Sync.pushObstacles(Array.from(obstacles)); }
+
+// Called by sync.js when the grid config changes remotely.
+function applyRemoteGrid(g) {
+  if (!g || !g.visible || !(Number(g.cellSize) > 0)) {
+    clearGrid();
+  } else {
+    setGrid(Number(g.cellSize), Number(g.offsetX) || 0, Number(g.offsetY) || 0);
+  }
+  snapToGrid = !!(g && g.snap);
+  updateSnapButton();
+}
+
+// Called by sync.js when the obstacle set changes remotely.
+function applyRemoteObstacles(cells) {
+  obstacles.clear();
+  if (Array.isArray(cells)) {
+    for (const k of cells) {
+      if (typeof k === 'string' && /^-?\d+,-?\d+$/.test(k)) obstacles.add(k);
+    }
+  }
+  renderObstacles();
+}
+
+// User-facing "Clear Grid" (wired from index.html) — clears and broadcasts.
+function userClearGrid() {
+  clearGrid();
+  syncGrid();
+  syncObstacles();
 }
 
 /* ───────── Obstacles (data-model API) ───────── */
@@ -242,6 +289,7 @@ function obstaclePaintMove(e) {
 function obstaclePaintUp() {
   obstaclePaintActive = false;
   obstaclePaintedThisDrag = null;
+  syncObstacles();
 }
 function applyObstaclePaint(cell) {
   const k = obstacleKey(cell.x, cell.y);

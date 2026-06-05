@@ -97,7 +97,7 @@ function showBgCtx(e) {
 function hideBgCtx() { bgCtxMenu.style.display = 'none'; }
 
 function bgCtxLoad()       { hideBgCtx(); document.getElementById('file-input').click(); }
-function bgCtxClear()      { hideBgCtx(); clearBG(); }
+function bgCtxClear()      { hideBgCtx(); clearBG(); syncBackground(); }
 function bgCtxRotate()     { hideBgCtx(); rotateBG(); }
 function bgCtxClearAll()   { hideBgCtx(); clearAll(); }
 
