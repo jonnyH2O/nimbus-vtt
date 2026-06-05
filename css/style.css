@@ -445,15 +445,15 @@ body.space-pan #token-layer { pointer-events: none; }
 
 #grid-canvas {
   position: absolute;
-  left: -2000px; top: -2000px;
-  width: 4000px; height: 4000px;
+  left: -1280px; top: -1280px;
+  width: 2560px; height: 2560px;
   pointer-events: none;
 }
 
 #drawing-layer {
   position: absolute;
-  left: -2000px; top: -2000px;
-  width: 4000px; height: 4000px;
+  left: -1280px; top: -1280px;
+  width: 2560px; height: 2560px;
   pointer-events: none;
 }
 

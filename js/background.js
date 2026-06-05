@@ -4,6 +4,11 @@
 
 const bgImgWrap = document.getElementById('bg-img-wrap');
 
+// Cap the largest side of a loaded map. Full-res phone photos (12MP+) decode to
+// tens of MB and, on memory-tight iOS Safari, help push the tab over its limit
+// (and bloat the synced base64). 2560px is plenty for a battle map.
+const MAX_BG_DIM = 2560;
+
 let bgRotation = 0;
 let bgNaturalW = 0;
 let bgNaturalH = 0;
@@ -18,6 +23,28 @@ function initBackground() {
 function loadBG(e) {
   const file = e.target.files[0]; if (!file) return;
   const url = URL.createObjectURL(file);
+  // Probe the dimensions first; downscale oversized images before displaying.
+  const probe = new Image();
+  probe.onload = () => {
+    const scale = Math.min(1, MAX_BG_DIM / Math.max(probe.naturalWidth, probe.naturalHeight));
+    if (scale < 1) {
+      const c = document.createElement('canvas');
+      c.width  = Math.max(1, Math.round(probe.naturalWidth  * scale));
+      c.height = Math.max(1, Math.round(probe.naturalHeight * scale));
+      c.getContext('2d').drawImage(probe, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(blob => setBgImage(blob ? URL.createObjectURL(blob) : url), 'image/jpeg', 0.9);
+    } else {
+      setBgImage(url);   // already small enough — use as-is
+    }
+  };
+  probe.onerror = () => { URL.revokeObjectURL(url); };
+  probe.src = url;
+  e.target.value = '';
+}
+
+// Display a (possibly downscaled) background image from a URL and broadcast it.
+function setBgImage(url) {
   bgImgWrap.innerHTML = '';
   const img = document.createElement('img');
   img.onload = () => {
@@ -30,7 +57,6 @@ function loadBG(e) {
   };
   img.src = url;
   bgImgWrap.appendChild(img);
-  e.target.value = '';
 }
 
 /* ───────── Sync helpers (push local changes + apply remote ones) ───────── */
