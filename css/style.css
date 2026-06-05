@@ -75,6 +75,8 @@ html, body {
   background: var(--page-bg);
   color: var(--text-dark);
   overflow: hidden;
+  /* Stop pull-to-refresh / bounce reloads when used as a normal browser tab */
+  overscroll-behavior: none;
 }
 
 /* ───────── BUTTONS / SELECTS ───────── */
