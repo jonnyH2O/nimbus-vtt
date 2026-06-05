@@ -1,0 +1,19 @@
+{
+  "name": "Nimbus VTT",
+  "short_name": "Nimbus",
+  "description": "A lightweight virtual tabletop for tokens, maps and grids.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e0c0a",
+  "theme_color": "#1a1208",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
