@@ -222,12 +222,16 @@ export function pushFullState(state) {
    destructive room-wide write, but stay silent when offline/single-player). */
 export function isConnected() { return ready(); }
 
+/* The current room id. Set by resolveRoom() during init (even when Firebase is
+   offline), so the UI can show/copy it regardless of connection state. */
+export function getRoomId() { return roomId; }
+
 /* ───────── Bridge to the classic (non-module) scripts ───────── */
 
 if (typeof window !== 'undefined') {
   window.Sync = {
     initSync, pushToken, removeToken,
     pushGrid, pushBackground, pushDrawing, pushObstacles,
-    pushFullState, isConnected
+    pushFullState, isConnected, getRoomId
   };
 }

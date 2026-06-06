@@ -1,7 +1,7 @@
 /* ───────── Drawing layer (freehand + shapes + eraser + undo/redo) ───────── */
 
-const DRAW_CANVAS_SIZE   = 4000;   // default buffer size when no background is loaded
-const DRAW_CANVAS_OFFSET = 2000;   // default world (0,0) → canvas pixel (2000,2000)
+const DRAW_CANVAS_SIZE   = 2560;   // default buffer size when no background is loaded
+const DRAW_CANVAS_OFFSET = 1280;   // default world (0,0) → canvas pixel (1280,1280)
 const DRAW_PAD     = 300;          // world-px drawable margin kept around the background
 const DRAW_MAX_DIM = 8192;         // cap on canvas buffer dimension (browser canvas limits)
 const MAX_UNDO = 50;

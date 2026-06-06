@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Nimbus VTT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Rain's Table</title>
+
+<!-- Installable / standalone: launch from the Home Screen with no browser chrome,
+     which also stops accidental pull-to-refresh reloads on mobile. -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#1a1208" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="Rain's Table" />
+<link rel="icon" type="image/png" href="icon.png" />
+<link rel="apple-touch-icon" href="icon.png" />
+
 <link rel="stylesheet" href="css/style.css" />
 <script defer src="js/state.js"></script>
 <script defer src="js/board.js"></script>
@@ -21,8 +33,8 @@
   <div id="canvas-wrap">
     <div id="world">
       <div id="bg-img-wrap"></div>
-      <canvas id="grid-canvas" width="4000" height="4000"></canvas>
-      <canvas id="drawing-layer" width="4000" height="4000"></canvas>
+      <canvas id="grid-canvas" width="2560" height="2560"></canvas>
+      <canvas id="drawing-layer" width="2560" height="2560"></canvas>
       <div id="obstacle-layer"></div>
       <div id="path-layer"></div>
       <div id="token-layer"></div>
@@ -114,6 +126,14 @@
           <option value="mist-and-moss">Mist and Moss</option>
         </select>
       </div>
+    </div>
+    <div class="panel-row">
+      <span class="panel-row-label">Room</span>
+      <div class="input-row">
+        <input type="text" id="room-input" placeholder="room code" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        <button id="btn-copy-room" onclick="copyRoom()" title="Copy room code">⧉</button>
+      </div>
+      <button onclick="goToRoom()">→ Go to Room</button>
     </div>
     <div class="panel-row">
       <span class="panel-row-label">Board</span>

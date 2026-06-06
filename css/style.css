@@ -180,6 +180,7 @@ button.btn-primary:hover {
 #token-color,
 #draw-color-picker,
 #name-input,
+#room-input,
 .draw-slider { touch-action: manipulation; }
 
 #token-color {
@@ -192,7 +193,8 @@ button.btn-primary:hover {
   background: var(--box-bg);
 }
 
-#name-input {
+#name-input,
+#room-input {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 500;
   font-size: 13px;
@@ -206,8 +208,10 @@ button.btn-primary:hover {
   box-shadow: inset 0 0 0 2px var(--border-light);
   transition: box-shadow 0.12s;
 }
-#name-input::placeholder { color: var(--text-muted); }
-#name-input:focus {
+#name-input::placeholder,
+#room-input::placeholder { color: var(--text-muted); }
+#name-input:focus,
+#room-input:focus {
   outline: none;
   box-shadow:
     inset 0 0 0 2px var(--border-light),
@@ -443,15 +447,15 @@ body.space-pan #token-layer { pointer-events: none; }
 
 #grid-canvas {
   position: absolute;
-  left: -2000px; top: -2000px;
-  width: 4000px; height: 4000px;
+  left: -1280px; top: -1280px;
+  width: 2560px; height: 2560px;
   pointer-events: none;
 }
 
 #drawing-layer {
   position: absolute;
-  left: -2000px; top: -2000px;
-  width: 4000px; height: 4000px;
+  left: -1280px; top: -1280px;
+  width: 2560px; height: 2560px;
   pointer-events: none;
 }
 
@@ -778,5 +782,6 @@ body.grid-panel-open #obstacle-layer { display: block; }
   .draw-slider::-moz-range-thumb { width: 28px; height: 28px; }
 
   /* 16px keeps iOS Safari from auto-zooming the page when the field is focused */
-  #name-input { font-size: 16px; padding: 10px 12px; }
+  #name-input,
+  #room-input { font-size: 16px; padding: 10px 12px; }
 }
