@@ -1,6 +1,6 @@
 {
-  "name": "Nimbus VTT",
-  "short_name": "Nimbus",
+  "name": "Rain's Table",
+  "short_name": "Rain's Table",
   "description": "A lightweight virtual tabletop for tokens, maps and grids.",
   "start_url": "./index.html",
   "scope": "./",
