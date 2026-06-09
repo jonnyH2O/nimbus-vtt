@@ -36,13 +36,94 @@ function fitToView(w, h) {
 let spaceHeld = false;
 let panActive = false, panMoved = false, panStartX = 0, panStartY = 0, panOrigX = 0, panOrigY = 0;
 
+/* Pinch (two-finger zoom + pan): track active touch points by id */
+const touchPts = new Map();
+let pinchActive = false, pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
+// canvasWrap is a fixed full-viewport element, so its rect is stable during a
+// gesture — cache it at gesture start to avoid a forced reflow on every move.
+let canvasRect = null;
+
+/* Batch transform writes to one per frame. High-rate pointermove events (mobile
+   digitizers fire many per frame, plus coalesced events) would otherwise trigger
+   a style write — and previously a getBoundingClientRect reflow — on every event,
+   flooding the main thread on fast gestures. We mutate `view` synchronously and
+   only paint here, so the latest state is always rendered. */
+let viewRaf = 0;
+function scheduleApplyView() {
+  if (viewRaf) return;
+  viewRaf = requestAnimationFrame(() => { viewRaf = 0; applyView(); });
+}
+
 function endPan(e) {
   if (gridDrawMode) { gridDrawUp(e); return; }
   if (obstaclePaintActive) { obstaclePaintUp(e); return; }
   if (drawActive) { drawUp(e); return; }
   if (!panActive) return;
   panActive = false;
+  canvasRect = null;
   canvasWrap.classList.remove('panning');
+}
+
+/* Begin a pinch once two fingers are down — cancel any in-progress pan */
+function startPinch() {
+  pinchActive = true;
+  panActive = false;
+  canvasWrap.classList.remove('panning');
+  canvasRect = canvasWrap.getBoundingClientRect();
+  const [a, b] = [...touchPts.values()];
+  pinchDist = Math.hypot(b.x - a.x, b.y - a.y);
+  pinchMidX = (a.x + b.x) / 2;
+  pinchMidY = (a.y + b.y) / 2;
+}
+
+/* Update zoom (distance ratio) and pan (midpoint drift), anchored at the
+   midpoint — same anchor math as the wheel handler. */
+function pinchMove() {
+  if (touchPts.size < 2) return;
+  const [a, b] = [...touchPts.values()];
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  const r = canvasRect || (canvasRect = canvasWrap.getBoundingClientRect());
+  const cx = midX - r.left;
+  const cy = midY - r.top;
+  // Only zoom when both distances are usable; a 0/NaN ratio would corrupt view.
+  if (pinchDist > 0 && dist > 0) {
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * (dist / pinchDist)));
+    const wx = (cx - view.x) / view.zoom;
+    const wy = (cy - view.y) / view.zoom;
+    view.zoom = newZoom;
+    view.x = cx - wx * newZoom;
+    view.y = cy - wy * newZoom;
+  }
+  view.x += midX - pinchMidX;
+  view.y += midY - pinchMidY;
+  pinchDist = dist;
+  pinchMidX = midX;
+  pinchMidY = midY;
+  // Bail out of a corrupted state rather than render a broken transform.
+  if (!Number.isFinite(view.x) || !Number.isFinite(view.y) || !Number.isFinite(view.zoom)) {
+    view.x = view.x || 0; view.y = view.y || 0; view.zoom = view.zoom || 1;
+  }
+  scheduleApplyView();
+}
+
+/* A touch lifted: drop it, end the pinch, and hand off to one-finger pan
+   if a single finger remains (so the view doesn't jump). */
+function handleTouchUp(e) {
+  touchPts.delete(e.pointerId);
+  if (pinchActive) {
+    if (touchPts.size === 1) {
+      const [p] = [...touchPts.values()];
+      pinchActive = false;
+      panActive = true; panMoved = true;
+      panStartX = p.x; panStartY = p.y;
+      panOrigX = view.x; panOrigY = view.y;
+      return;
+    }
+    pinchActive = false;
+  }
+  endPan(e);
 }
 
 /* ───────── Theme ───────── */
@@ -59,6 +140,67 @@ function restoreTheme() {
   document.body.dataset.theme = saved;
   const sel = document.getElementById('theme-select');
   if (sel) sel.value = saved;
+}
+
+/* ───────── Room (multiplayer) ───────── */
+
+// Current room id — prefer the live value from the sync module, fall back to
+// the URL so it works before sync has loaded (or when running offline).
+function currentRoomId() {
+  if (window.Sync && window.Sync.getRoomId) {
+    const r = window.Sync.getRoomId();
+    if (r) return r;
+  }
+  return new URLSearchParams(location.search).get('room') || '';
+}
+
+// Reduce a raw code, a pasted share URL, or messy input to the canonical
+// lowercase-alphanumeric room code (matches genRoomId()'s alphabet in sync.js).
+function parseRoomCode(raw) {
+  const s = (raw || '').trim();
+  const m = s.match(/[?&]room=([a-z0-9]+)/i);
+  if (m) return m[1].toLowerCase();
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function refreshRoomInput() {
+  const input = document.getElementById('room-input');
+  if (input) input.value = currentRoomId();
+}
+
+async function copyRoom() {
+  const code = currentRoomId();
+  if (!code) return;
+  const btn = document.getElementById('btn-copy-room');
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(code);
+    ok = true;
+  } catch (_) {
+    // Fallback for non-secure contexts / older browsers: select + execCommand
+    const input = document.getElementById('room-input');
+    if (input) {
+      input.focus();
+      input.select();
+      try { ok = document.execCommand('copy'); } catch (_) {}
+    }
+  }
+  if (btn) {
+    btn.textContent = ok ? '✓' : '⧉';
+    setTimeout(() => { btn.textContent = '⧉'; }, 1200);
+  }
+}
+
+function goToRoom() {
+  const input = document.getElementById('room-input');
+  if (!input) return;
+  const code = parseRoomCode(input.value);
+  if (!code) { refreshRoomInput(); return; }   // nothing usable — reset the field
+  if (code === currentRoomId()) return;        // already in this room
+  const params = new URLSearchParams(location.search);
+  params.set('room', code);
+  // Reload into the new room; sync re-runs init against ?room=<code>.
+  location.search = params.toString();
 }
 
 /* ───────── Side panels ───────── */
@@ -84,6 +226,7 @@ function togglePanel(name) {
   document.body.classList.toggle('grid-panel-open', openPanel === 'grid');
   if (openPanel !== 'grid') exitObstacleEdit();
   if (openPanel !== 'drawing') exitDrawingMode();
+  if (openPanel === 'settings') refreshRoomInput();
 }
 
 /* ───────── Background context menu ───────── */
@@ -145,6 +288,11 @@ function initBoard() {
 
   /* Pan — drag empty canvas with left or middle button */
   canvasWrap.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') {
+      touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchPts.size === 2) { startPinch(); return; }
+    }
+    if (pinchActive) return;
     if (e.target.closest('.token')) return;
     if (!spaceHeld) {
       if (gridDrawMode) { gridDrawDown(e); return; }
@@ -161,6 +309,10 @@ function initBoard() {
     canvasWrap.setPointerCapture(e.pointerId);
   });
   canvasWrap.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && touchPts.has(e.pointerId)) {
+      touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinchActive) { pinchMove(); return; }
     if (gridDrawMode) { gridDrawMove(e); return; }
     if (obstaclePaintActive) { obstaclePaintMove(e); return; }
     if (drawActive) { drawMove(e); return; }
@@ -174,10 +326,10 @@ function initBoard() {
     }
     view.x = panOrigX + dx;
     view.y = panOrigY + dy;
-    applyView();
+    scheduleApplyView();
   });
-  canvasWrap.addEventListener('pointerup',     endPan);
-  canvasWrap.addEventListener('pointercancel', endPan);
+  canvasWrap.addEventListener('pointerup',     e => { if (e.pointerType === 'touch') { handleTouchUp(e); return; } endPan(e); });
+  canvasWrap.addEventListener('pointercancel', e => { if (e.pointerType === 'touch') { handleTouchUp(e); return; } endPan(e); });
 
   /* Background context menu */
   document.getElementById('main').addEventListener('contextmenu', e => {

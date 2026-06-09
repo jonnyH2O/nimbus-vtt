@@ -7,7 +7,7 @@
 const gridCanvas    = document.getElementById('grid-canvas');
 const gridCtx       = gridCanvas.getContext('2d');
 const obstacleLayer = document.getElementById('obstacle-layer');
-const GRID_CANVAS_SIZE = 4000;
+const GRID_CANVAS_SIZE = 2560;   // backing store kept modest for mobile (iOS) memory
 
 /* ───────── Grid state ───────── */
 
