@@ -175,6 +175,17 @@ button.btn-icon .icon,
    give the glyph a comfortable fixed size instead of the 10px text size. */
 button.btn-icon-only .icon { width: 18px; height: 18px; }
 
+/* Icon-only buttons must flex-centre the glyph. An inline <svg> otherwise sits
+   on the text baseline, leaving descender space below it so the icon looks
+   shifted above the button's centre. */
+.panel-btn,
+.tool-row .tool-btn,
+button.btn-icon-only {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Select wrapper for custom arrow */
 .select-wrap {
   position: relative;
