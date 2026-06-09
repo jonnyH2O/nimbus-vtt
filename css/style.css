@@ -907,6 +907,53 @@ body.grid-panel-open #obstacle-layer { display: block; }
     padding: 12px;
   }
 
+  /* ── Grid panel: [Set Grid][Snap][Clear icon] on one line, obstacle below ── */
+  #panel-grid .panel-header { display: none; }
+  #panel-grid .btn-label,
+  #panel-grid .lbl-extra { display: none; }     /* drop "Clear Grid" text + "to Grid" suffix */
+  #panel-grid .panel-body {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+  #panel-grid .panel-body > button {
+    width: auto;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 12px 6px;
+  }
+  #panel-grid .panel-body > .btn-primary { order: 1; flex: 1 1 auto; }            /* Set Grid */
+  #panel-grid #btn-snap-toggle          { order: 2; flex: 1 1 auto; }            /* Snap */
+  #panel-grid #btn-clear-grid           { order: 3; flex: 0 0 auto; padding: 12px; }  /* icon only */
+  #panel-grid #btn-obstacle-toggle      { order: 4; flex: 1 1 100%; }            /* its own line */
+
+  /* ── Tokens panel: [Change Picture][Place Token] side by side, no clear-image ── */
+  #panel-tokens .panel-header { display: none; }
+  #panel-tokens .btn-icon-only { display: none; }         /* drop the clear-image ✕ */
+  #panel-tokens .panel-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px;
+  }
+  #panel-tokens .panel-row:first-of-type { grid-column: 1 / -1; }   /* Name row spans full width */
+  /* flatten the picture row so Upload sits next to Place Token in the grid */
+  #panel-tokens #token-picture-row,
+  #panel-tokens #token-picture-row .input-row { display: contents; }
+  #panel-tokens #token-picture-row .panel-row-label { display: none; }
+
+  /* ── Settings panel: [Save][Load] on one line ── */
+  #panel-settings .panel-header { display: none; }
+  #settings-board-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  #settings-board-row .panel-row-label { flex: 0 0 100%; }   /* "Board" label on its own line */
+  #settings-board-row button { flex: 1; }
+
   /* 16px keeps iOS Safari from auto-zooming the page when the field is focused */
   #name-input,
   #room-input { font-size: 16px; padding: 10px 12px; }
