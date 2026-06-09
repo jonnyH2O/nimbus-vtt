@@ -815,7 +815,9 @@ body.grid-panel-open #obstacle-layer { display: block; }
 /* ───────── MOBILE (≤600px) — bottom-sheet panels + finger-sized controls ───────── */
 
 @media (max-width: 600px) {
-  /* Side slab → full-width bottom sheet that slides up from the bottom edge */
+  /* Side slab → full-width bottom sheet that slides up from the bottom edge.
+     padding-bottom clears the permanent bottom toolbar (~62px) so panel content
+     isn't hidden behind it. */
   .panel {
     top: auto;
     left: 0;
@@ -825,9 +827,33 @@ body.grid-panel-open #obstacle-layer { display: block; }
     max-height: 80vh;
     overflow-y: auto;
     transform: translateY(calc(100% + 40px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   }
   .panel.open { transform: translateY(0); }
+
+  /* Top-right collapsible dock → permanent, evenly-spaced bottom toolbar */
+  .panel-buttons {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: var(--header-bg);
+    border-top: 3px solid var(--border-dark);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .dock-toggle { display: none; }       /* no collapsing on mobile */
+  /* id selector outranks the base `.panel-buttons.open .dock-items` collapse rule */
+  #panel-dock .dock-items {
+    flex: 1;
+    max-width: none;
+    opacity: 1;
+    overflow: visible;
+    margin-right: 0;
+    gap: 0;
+    justify-content: space-around;       /* tools evenly spaced across the bar */
+  }
 
   /* Bigger tap targets */
   button,
