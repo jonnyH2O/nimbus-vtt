@@ -44,10 +44,10 @@
 </div>
 
 <div class="panel-buttons">
-  <button id="btn-panel-drawing" class="panel-btn" onclick="togglePanel('drawing')" title="Drawing">🖌</button>
-  <button id="btn-panel-grid" class="panel-btn" onclick="togglePanel('grid')" title="Grid">⊞</button>
-  <button id="btn-panel-tokens" class="panel-btn" onclick="togglePanel('tokens')" title="Tokens">♟</button>
-  <button id="btn-panel-settings" class="panel-btn" onclick="togglePanel('settings')" title="Settings">⚙</button>
+  <button id="btn-panel-drawing" class="panel-btn" onclick="togglePanel('drawing')" title="Drawing"><svg class="icon"><use href="icons/icons.svg#drawing"></use></svg></button>
+  <button id="btn-panel-grid" class="panel-btn" onclick="togglePanel('grid')" title="Grid"><svg class="icon"><use href="icons/icons.svg#grid"></use></svg></button>
+  <button id="btn-panel-tokens" class="panel-btn" onclick="togglePanel('tokens')" title="Tokens"><svg class="icon"><use href="icons/icons.svg#tokens"></use></svg></button>
+  <button id="btn-panel-settings" class="panel-btn" onclick="togglePanel('settings')" title="Settings"><svg class="icon"><use href="icons/icons.svg#settings"></use></svg></button>
 </div>
 
 <div id="panel-drawing" class="panel">
@@ -56,11 +56,11 @@
     <div class="panel-row">
       <span class="panel-row-label">Tool</span>
       <div class="tool-row">
-        <button id="btn-tool-pen"    class="tool-btn" onclick="setDrawTool('pen')"    title="Draw">✏</button>
-        <button id="btn-tool-rect"   class="tool-btn" onclick="setDrawTool('rect')"   title="Rectangle">⬜</button>
-        <button id="btn-tool-circle" class="tool-btn" onclick="setDrawTool('circle')" title="Circle">⭕</button>
-        <button id="btn-tool-line"   class="tool-btn" onclick="setDrawTool('line')"   title="Line">➖</button>
-        <button id="btn-tool-eraser" class="tool-btn" onclick="setDrawTool('eraser')" title="Eraser">◻</button>
+        <button id="btn-tool-pen"    class="tool-btn" onclick="setDrawTool('pen')"    title="Draw"><svg class="icon"><use href="icons/icons.svg#pen"></use></svg></button>
+        <button id="btn-tool-rect"   class="tool-btn" onclick="setDrawTool('rect')"   title="Rectangle"><svg class="icon"><use href="icons/icons.svg#rectangle"></use></svg></button>
+        <button id="btn-tool-circle" class="tool-btn" onclick="setDrawTool('circle')" title="Circle"><svg class="icon"><use href="icons/icons.svg#circle"></use></svg></button>
+        <button id="btn-tool-line"   class="tool-btn" onclick="setDrawTool('line')"   title="Line"><svg class="icon"><use href="icons/icons.svg#line"></use></svg></button>
+        <button id="btn-tool-eraser" class="tool-btn" onclick="setDrawTool('eraser')" title="Eraser"><svg class="icon"><use href="icons/icons.svg#eraser"></use></svg></button>
       </div>
     </div>
     <div class="panel-row">
@@ -79,7 +79,7 @@
       <span class="panel-row-label">Brush Size</span>
       <input type="range" id="draw-size-slider" class="draw-slider" min="2" max="40" step="1" value="6" oninput="setDrawSize(this.value)" />
     </div>
-    <button onclick="clearDrawing()">🗑 Clear Drawing</button>
+    <button class="btn-icon" onclick="clearDrawing()"><svg class="icon"><use href="icons/icons.svg#trash"></use></svg> Clear Drawing</button>
   </div>
 </div>
 
@@ -97,7 +97,7 @@
       <span class="panel-row-label">Picture</span>
       <div class="input-row">
         <button id="btn-upload-pic" onclick="uploadPicForDefault()">Upload Picture</button>
-        <button onclick="clearCurrentTokenImage()" title="No picture">✕</button>
+        <button class="btn-icon-only" onclick="clearCurrentTokenImage()" title="No picture"><svg class="icon"><use href="icons/icons.svg#close"></use></svg></button>
       </div>
     </div>
     <button class="btn-primary" onclick="addToken()">+ Place Token</button>
@@ -107,10 +107,10 @@
 <div id="panel-grid" class="panel">
   <div class="panel-header">Grid</div>
   <div class="panel-body">
-    <button class="btn-primary" onclick="startGridDraw()">📐 Set Grid</button>
-    <button onclick="userClearGrid()">✕ Clear Grid</button>
-    <button id="btn-snap-toggle" onclick="toggleSnap()">⊞ Snap to Grid</button>
-    <button id="btn-obstacle-toggle" onclick="toggleObstacleEdit()">🚫 Add Obstacle Cells</button>
+    <button class="btn-primary btn-icon" onclick="startGridDraw()"><svg class="icon"><use href="icons/icons.svg#set-grid"></use></svg> Set Grid</button>
+    <button class="btn-icon" onclick="userClearGrid()"><svg class="icon"><use href="icons/icons.svg#close"></use></svg> Clear Grid</button>
+    <button id="btn-snap-toggle" class="btn-icon" onclick="toggleSnap()"><svg class="icon"><use href="icons/icons.svg#grid"></use></svg> Snap to Grid</button>
+    <button id="btn-obstacle-toggle" class="btn-icon" onclick="toggleObstacleEdit()"><svg class="icon"><use href="icons/icons.svg#obstacle"></use></svg> Add Obstacle Cells</button>
   </div>
 </div>
 
@@ -131,32 +131,32 @@
       <span class="panel-row-label">Room</span>
       <div class="input-row">
         <input type="text" id="room-input" placeholder="room code" autocapitalize="none" autocorrect="off" spellcheck="false" />
-        <button id="btn-copy-room" onclick="copyRoom()" title="Copy room code">⧉</button>
+        <button id="btn-copy-room" class="btn-icon-only" onclick="copyRoom()" title="Copy room code"><svg class="icon"><use href="icons/icons.svg#copy"></use></svg></button>
       </div>
       <button onclick="goToRoom()">→ Go to Room</button>
     </div>
     <div class="panel-row">
       <span class="panel-row-label">Board</span>
-      <button onclick="saveBoard()">💾 Save</button>
-      <button onclick="document.getElementById('load-input').click()">📂 Load</button>
+      <button class="btn-icon" onclick="saveBoard()"><svg class="icon"><use href="icons/icons.svg#save"></use></svg> Save</button>
+      <button class="btn-icon" onclick="document.getElementById('load-input').click()"><svg class="icon"><use href="icons/icons.svg#folder"></use></svg> Load</button>
     </div>
   </div>
 </div>
 
 <div id="ctx-menu" class="ctx-menu">
-  <div class="ctx-item" onclick="ctxRename()">✏ Rename</div>
-  <div class="ctx-item" onclick="ctxRecolor()">🎨 Recolor</div>
-  <div class="ctx-item" onclick="ctxChangePicture()">🖼 Change Picture</div>
+  <div class="ctx-item" onclick="ctxRename()"><svg class="icon"><use href="icons/icons.svg#pen"></use></svg> Rename</div>
+  <div class="ctx-item" onclick="ctxRecolor()"><svg class="icon"><use href="icons/icons.svg#palette"></use></svg> Recolor</div>
+  <div class="ctx-item" onclick="ctxChangePicture()"><svg class="icon"><use href="icons/icons.svg#image"></use></svg> Change Picture</div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item danger" onclick="ctxDelete()">✕ Remove</div>
+  <div class="ctx-item danger" onclick="ctxDelete()"><svg class="icon"><use href="icons/icons.svg#close"></use></svg> Remove</div>
 </div>
 
 <div id="bg-ctx-menu" class="ctx-menu">
-  <div class="ctx-item" onclick="bgCtxLoad()">📁 Load Background</div>
-  <div class="ctx-item" onclick="bgCtxClear()">✕ Clear Background</div>
-  <div class="ctx-item" onclick="bgCtxRotate()">🔄 Rotate Background</div>
+  <div class="ctx-item" onclick="bgCtxLoad()"><svg class="icon"><use href="icons/icons.svg#folder"></use></svg> Load Background</div>
+  <div class="ctx-item" onclick="bgCtxClear()"><svg class="icon"><use href="icons/icons.svg#close"></use></svg> Clear Background</div>
+  <div class="ctx-item" onclick="bgCtxRotate()"><svg class="icon"><use href="icons/icons.svg#rotate"></use></svg> Rotate Background</div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item danger" onclick="bgCtxClearAll()">🗑 Clear All Tokens</div>
+  <div class="ctx-item danger" onclick="bgCtxClearAll()"><svg class="icon"><use href="icons/icons.svg#trash"></use></svg> Clear All Tokens</div>
 </div>
 
 <input type="file" id="file-input" accept="image/*" onchange="loadBG(event)" />

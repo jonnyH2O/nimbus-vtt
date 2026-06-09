@@ -185,9 +185,10 @@ async function copyRoom() {
       try { ok = document.execCommand('copy'); } catch (_) {}
     }
   }
-  if (btn) {
-    btn.textContent = ok ? '✓' : '⧉';
-    setTimeout(() => { btn.textContent = '⧉'; }, 1200);
+  const use = btn && btn.querySelector('use');
+  if (use) {
+    use.setAttribute('href', ok ? 'icons/icons.svg#check' : 'icons/icons.svg#copy');
+    setTimeout(() => { use.setAttribute('href', 'icons/icons.svg#copy'); }, 1200);
   }
 }
 

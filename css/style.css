@@ -146,6 +146,35 @@ button.btn-primary:hover {
   color: var(--header-bg);
 }
 
+/* ───────── ICONS (SVG sprite) ───────── */
+
+/* fill:currentColor makes every icon inherit the button's text colour, so they
+   recolour for free on hover/active and across themes. pointer-events:none lets
+   clicks fall through to the button (the <use> would otherwise eat them). */
+.icon {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Buttons (and menu items) that pair an icon with a text label: lay them out
+   in a centred row and size the icon a little larger than the small-caps text. */
+button.btn-icon,
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+button.btn-icon { justify-content: center; }
+button.btn-icon .icon,
+.ctx-item .icon { width: 1.5em; height: 1.5em; }
+
+/* Standalone icon-only buttons whose base font is small (copy, clear-picture):
+   give the glyph a comfortable fixed size instead of the 10px text size. */
+button.btn-icon-only .icon { width: 18px; height: 18px; }
+
 /* Select wrapper for custom arrow */
 .select-wrap {
   position: relative;
