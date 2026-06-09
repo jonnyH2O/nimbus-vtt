@@ -102,14 +102,19 @@ button,
   touch-action: manipulation;
 }
 
-button:hover,
-.select-wrap select:hover {
-  transform: translateY(-2px);
-  background: var(--box-bg-hover);
-  color: var(--accent);
-  box-shadow:
-    inset 0 0 0 2px var(--border-light),
-    var(--shadow-hover);
+/* hover styles only on real pointer devices — stops touchscreens from "sticking"
+   the hover state on a button after a tap (it'd otherwise linger until you tap
+   elsewhere, making a closed panel's button still look highlighted). */
+@media (hover: hover) {
+  button:hover,
+  .select-wrap select:hover {
+    transform: translateY(-2px);
+    background: var(--box-bg-hover);
+    color: var(--accent);
+    box-shadow:
+      inset 0 0 0 2px var(--border-light),
+      var(--shadow-hover);
+  }
 }
 
 button:active,
