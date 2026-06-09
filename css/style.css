@@ -146,6 +146,46 @@ button.btn-primary:hover {
   color: var(--header-bg);
 }
 
+/* ───────── ICONS (SVG sprite) ───────── */
+
+/* fill:currentColor makes every icon inherit the button's text colour, so they
+   recolour for free on hover/active and across themes. pointer-events:none lets
+   clicks fall through to the button (the <use> would otherwise eat them). */
+.icon {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Buttons (and menu items) that pair an icon with a text label: lay them out
+   in a centred row and size the icon a little larger than the small-caps text. */
+button.btn-icon,
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+button.btn-icon { justify-content: center; }
+button.btn-icon .icon,
+.ctx-item .icon { width: 1.5em; height: 1.5em; }
+
+/* Standalone icon-only buttons whose base font is small (copy, clear-picture):
+   give the glyph a comfortable fixed size instead of the 10px text size. */
+button.btn-icon-only .icon { width: 18px; height: 18px; }
+
+/* Icon-only buttons must flex-centre the glyph. An inline <svg> otherwise sits
+   on the text baseline, leaving descender space below it so the icon looks
+   shifted above the button's centre. */
+.panel-btn,
+.tool-row .tool-btn,
+button.btn-icon-only {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Select wrapper for custom arrow */
 .select-wrap {
   position: relative;
@@ -225,9 +265,32 @@ button.btn-primary:hover {
   top: 16px;
   right: 16px;
   display: flex;
-  gap: 8px;
+  align-items: center;
   z-index: 100;
 }
+
+/* Collapsible dock: the right edge is anchored (right:16px), so the item group
+   expands leftward — "pushing the icons outward" — and collapses back under the
+   arrow. overflow:hidden clips them while max-width animates from 0. */
+.dock-items {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  margin-right: 0;
+  transition: max-width 0.26s ease, opacity 0.2s ease, margin-right 0.26s ease;
+}
+.panel-buttons.open .dock-items {
+  max-width: 240px;   /* > the 4 buttons + gaps (~208px); just needs headroom */
+  opacity: 1;
+  margin-right: 8px;
+}
+.dock-items .panel-btn { flex: 0 0 auto; }   /* keep 46px while clipped */
+
+/* Arrow flips 180° between the in/out states */
+.dock-toggle .icon { transition: transform 0.26s ease; }
+.panel-buttons.open .dock-toggle .icon { transform: rotate(180deg); }
 
 .panel-btn {
   width: 46px;
