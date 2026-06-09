@@ -230,6 +230,11 @@ function togglePanel(name) {
   if (openPanel === 'settings') refreshRoomInput();
 }
 
+/* Collapsible top-right dock: flips the arrow and slides the panel icons in/out. */
+function toggleDock() {
+  document.getElementById('panel-dock').classList.toggle('open');
+}
+
 /* ───────── Background context menu ───────── */
 
 function showBgCtx(e) {
