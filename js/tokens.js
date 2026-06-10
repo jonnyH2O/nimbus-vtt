@@ -211,6 +211,9 @@ function makeDraggable(el, id) {
 
   el.addEventListener('pointermove', e => {
     if (!dragging) return;
+    // Captured-pointer events still bubble; keep this finger's moves out of the
+    // board's pan/pinch handlers so a second finger can pan independently.
+    e.stopPropagation();
     const w = screenToWorld(e.clientX, e.clientY);
     const x = w.x - ox;
     const y = w.y - oy;
@@ -243,7 +246,8 @@ function makeDraggable(el, id) {
     }
   });
 
-  const endDrag = () => {
+  const endDrag = (e) => {
+    if (dragging && e) e.stopPropagation();   // don't let lift-off end a second finger's pan
     if (dragging && snapToGrid && gridCellSize) {
       const snapped = snapPoint(tokens[id].x, tokens[id].y);
       tokens[id].x = snapped.x;
@@ -279,6 +283,7 @@ function makeResizable(handle, el, id) {
 
   handle.addEventListener('pointermove', e => {
     if (!active) return;
+    e.stopPropagation();
     const delta = (e.clientX - startX) / view.zoom;
     const newSize = Math.max(28, Math.min(200, startSize + delta));
     tokens[id].size = newSize;
@@ -287,8 +292,8 @@ function makeResizable(handle, el, id) {
     ring.style.height = newSize + 'px';
   });
 
-  handle.addEventListener('pointerup',    () => { active = false; syncToken(id); });
-  handle.addEventListener('pointercancel',() => { active = false; });
+  handle.addEventListener('pointerup',    e => { if (active) e.stopPropagation(); active = false; syncToken(id); });
+  handle.addEventListener('pointercancel',e => { if (active) e.stopPropagation(); active = false; });
 }
 
 /* ───────── Token context menu ───────── */
