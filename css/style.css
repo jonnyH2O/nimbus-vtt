@@ -387,6 +387,16 @@ button.btn-icon-only {
 
 .panel-body > button { width: 100%; }
 
+/* Settings: Save / Load share one row (all resolutions) */
+#settings-board-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+#settings-board-row .panel-row-label { flex: 0 0 100%; }
+#settings-board-row button { flex: 1; }
+
 /* Drawing panel: tool row */
 .tool-row {
   display: flex;
@@ -943,16 +953,8 @@ body.grid-panel-open #obstacle-layer { display: block; }
   #panel-tokens #token-picture-row .input-row { display: contents; }
   #panel-tokens #token-picture-row .panel-row-label { display: none; }
 
-  /* ── Settings panel: [Save][Load] on one line ── */
+  /* ── Settings panel: title hidden on mobile (Save/Load row is shared, see base) ── */
   #panel-settings .panel-header { display: none; }
-  #settings-board-row {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-  }
-  #settings-board-row .panel-row-label { flex: 0 0 100%; }   /* "Board" label on its own line */
-  #settings-board-row button { flex: 1; }
 
   /* 16px keeps iOS Safari from auto-zooming the page when the field is focused */
   #name-input,
