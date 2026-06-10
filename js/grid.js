@@ -27,8 +27,8 @@ const HINT_GRID    = 'Drag to define one grid cell · Esc to cancel';
 
 function setHint(text) { hint.textContent = text; hint.style.display = ''; }
 function restoreHint() {
-  hint.textContent = HINT_DEFAULT;
-  hint.style.display = Object.keys(tokens).length === 0 ? '' : 'none';
+  hint.textContent = '';
+  hint.style.display = 'none';
 }
 
 /* ───────── Grid-draw mode (rectangle picker) ───────── */
