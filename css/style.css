@@ -100,25 +100,36 @@ button,
     var(--shadow-drop);
   white-space: nowrap;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;   /* no grey flash overlay on tap */
 }
 
-button:hover,
-.select-wrap select:hover {
-  transform: translateY(-2px);
-  background: var(--box-bg-hover);
-  color: var(--accent);
-  box-shadow:
-    inset 0 0 0 2px var(--border-light),
-    var(--shadow-hover);
+/* hover styles only on real pointer devices — stops touchscreens from "sticking"
+   the hover state on a button after a tap (it'd otherwise linger until you tap
+   elsewhere, making a closed panel's button still look highlighted). */
+@media (hover: hover) {
+  button:hover,
+  .select-wrap select:hover {
+    transform: translateY(-2px);
+    background: var(--box-bg-hover);
+    color: var(--accent);
+    box-shadow:
+      inset 0 0 0 2px var(--border-light),
+      var(--shadow-hover);
+  }
 }
 
-button:active,
-.select-wrap select:active {
-  transform: translateY(0);
-  background: var(--border-dark);
-  box-shadow:
-    inset 0 0 0 2px var(--border-light),
-    var(--shadow-drop);
+/* Same guard for the press state: on touch the :active style can stick after a
+   tap (the panel closing changes the DOM mid-tap), leaving the button looking
+   highlighted until you tap elsewhere. Limit it to real pointer devices. */
+@media (hover: hover) {
+  button:active,
+  .select-wrap select:active {
+    transform: translateY(0);
+    background: var(--border-dark);
+    box-shadow:
+      inset 0 0 0 2px var(--border-light),
+      var(--shadow-drop);
+  }
 }
 
 button.active {
@@ -375,6 +386,16 @@ button.btn-icon-only {
 }
 
 .panel-body > button { width: 100%; }
+
+/* Settings: Save / Load share one row (all resolutions) */
+#settings-board-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+#settings-board-row .panel-row-label { flex: 0 0 100%; }
+#settings-board-row button { flex: 1; }
 
 /* Drawing panel: tool row */
 .tool-row {
@@ -815,7 +836,9 @@ body.grid-panel-open #obstacle-layer { display: block; }
 /* ───────── MOBILE (≤600px) — bottom-sheet panels + finger-sized controls ───────── */
 
 @media (max-width: 600px) {
-  /* Side slab → full-width bottom sheet that slides up from the bottom edge */
+  /* Side slab → full-width bottom sheet that slides up from the bottom edge.
+     padding-bottom clears the permanent bottom toolbar (~62px) so panel content
+     isn't hidden behind it. */
   .panel {
     top: auto;
     left: 0;
@@ -825,9 +848,33 @@ body.grid-panel-open #obstacle-layer { display: block; }
     max-height: 80vh;
     overflow-y: auto;
     transform: translateY(calc(100% + 40px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   }
   .panel.open { transform: translateY(0); }
+
+  /* Top-right collapsible dock → permanent, evenly-spaced bottom toolbar */
+  .panel-buttons {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: var(--header-bg);
+    border-top: 3px solid var(--border-dark);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .dock-toggle { display: none; }       /* no collapsing on mobile */
+  /* id selector outranks the base `.panel-buttons.open .dock-items` collapse rule */
+  #panel-dock .dock-items {
+    flex: 1;
+    max-width: none;
+    opacity: 1;
+    overflow: visible;
+    margin-right: 0;
+    gap: 0;
+    justify-content: space-around;       /* tools evenly spaced across the bar */
+  }
 
   /* Bigger tap targets */
   button,
@@ -843,6 +890,71 @@ body.grid-panel-open #obstacle-layer { display: block; }
   .draw-slider { height: 40px; }
   .draw-slider::-webkit-slider-thumb { width: 28px; height: 28px; margin-top: -10px; }
   .draw-slider::-moz-range-thumb { width: 28px; height: 28px; }
+
+  /* ── Drawing panel: compact 2-row layout ──
+     Row 1: [ tools ............ ] [ colour ]
+     Row 2: [ brush slider ..... ] [ clear  ]
+     Strip the chrome (title, row labels, quick swatches) and flatten the row
+     wrappers with display:contents so their contents become grid items that
+     auto-place into the two columns in DOM order. */
+  #panel-drawing .panel-header,
+  #panel-drawing .panel-row-label,
+  #panel-drawing .color-row .swatch,
+  #panel-drawing .btn-label { display: none; }
+
+  #panel-drawing .panel-row { display: contents; }
+
+  #panel-drawing .panel-body {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+  }
+  #panel-drawing #draw-color-picker { margin-left: 0; }   /* sit flush in its cell */
+  #panel-drawing .panel-body > button {                   /* clear → square icon button */
+    width: auto;
+    padding: 12px;
+  }
+
+  /* ── Grid panel: [Set Grid][Snap][Clear icon] on one line, obstacle below ── */
+  #panel-grid .panel-header { display: none; }
+  #panel-grid .btn-label,
+  #panel-grid .lbl-extra { display: none; }     /* drop "Clear Grid" text + "to Grid" suffix */
+  #panel-grid .panel-body {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+  #panel-grid .panel-body > button {
+    width: auto;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    padding: 12px 6px;
+  }
+  #panel-grid .panel-body > .btn-primary { order: 1; flex: 1 1 auto; }            /* Set Grid */
+  #panel-grid #btn-snap-toggle          { order: 2; flex: 1 1 auto; }            /* Snap */
+  #panel-grid #btn-clear-grid           { order: 3; flex: 0 0 auto; padding: 12px; }  /* icon only */
+  #panel-grid #btn-obstacle-toggle      { order: 4; flex: 1 1 100%; }            /* its own line */
+
+  /* ── Tokens panel: [Change Picture][Place Token] side by side, no clear-image ── */
+  #panel-tokens .panel-header { display: none; }
+  #panel-tokens .btn-icon-only { display: none; }         /* drop the clear-image ✕ */
+  #panel-tokens .panel-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px;
+  }
+  #panel-tokens .panel-row:first-of-type { grid-column: 1 / -1; }   /* Name row spans full width */
+  /* flatten the picture row so Upload sits next to Place Token in the grid */
+  #panel-tokens #token-picture-row,
+  #panel-tokens #token-picture-row .input-row { display: contents; }
+  #panel-tokens #token-picture-row .panel-row-label { display: none; }
+
+  /* ── Settings panel: title hidden on mobile (Save/Load row is shared, see base) ── */
+  #panel-settings .panel-header { display: none; }
 
   /* 16px keeps iOS Safari from auto-zooming the page when the field is focused */
   #name-input,

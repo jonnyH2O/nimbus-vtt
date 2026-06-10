@@ -82,7 +82,7 @@
       <span class="panel-row-label">Brush Size</span>
       <input type="range" id="draw-size-slider" class="draw-slider" min="2" max="40" step="1" value="6" oninput="setDrawSize(this.value)" />
     </div>
-    <button class="btn-icon" onclick="clearDrawing()"><svg class="icon"><use href="icons/icons.svg#trash"></use></svg> Clear Drawing</button>
+    <button class="btn-icon" onclick="clearDrawing()" title="Clear Drawing"><svg class="icon"><use href="icons/icons.svg#trash"></use></svg> <span class="btn-label">Clear Drawing</span></button>
   </div>
 </div>
 
@@ -96,14 +96,14 @@
         <input type="color" id="token-color" value="#3a7acc" title="Token color" />
       </div>
     </div>
-    <div class="panel-row">
+    <div class="panel-row" id="token-picture-row">
       <span class="panel-row-label">Picture</span>
       <div class="input-row">
         <button id="btn-upload-pic" onclick="uploadPicForDefault()">Upload Picture</button>
         <button class="btn-icon-only" onclick="clearCurrentTokenImage()" title="No picture"><svg class="icon"><use href="icons/icons.svg#close"></use></svg></button>
       </div>
     </div>
-    <button class="btn-primary" onclick="addToken()">+ Place Token</button>
+    <button id="btn-place-token" class="btn-primary" onclick="addToken()">+ Place Token</button>
   </div>
 </div>
 
@@ -111,8 +111,8 @@
   <div class="panel-header">Grid</div>
   <div class="panel-body">
     <button class="btn-primary btn-icon" onclick="startGridDraw()"><svg class="icon"><use href="icons/icons.svg#set-grid"></use></svg> Set Grid</button>
-    <button class="btn-icon" onclick="userClearGrid()"><svg class="icon"><use href="icons/icons.svg#close"></use></svg> Clear Grid</button>
-    <button id="btn-snap-toggle" class="btn-icon" onclick="toggleSnap()"><svg class="icon"><use href="icons/icons.svg#grid"></use></svg> Snap to Grid</button>
+    <button id="btn-clear-grid" class="btn-icon" onclick="userClearGrid()" title="Clear Grid"><svg class="icon"><use href="icons/icons.svg#close"></use></svg> <span class="btn-label">Clear Grid</span></button>
+    <button id="btn-snap-toggle" class="btn-icon" onclick="toggleSnap()"><svg class="icon"><use href="icons/icons.svg#grid"></use></svg> Snap<span class="lbl-extra"> to Grid</span></button>
     <button id="btn-obstacle-toggle" class="btn-icon" onclick="toggleObstacleEdit()"><svg class="icon"><use href="icons/icons.svg#obstacle"></use></svg> Add Obstacle Cells</button>
   </div>
 </div>
@@ -138,7 +138,7 @@
       </div>
       <button onclick="goToRoom()">→ Go to Room</button>
     </div>
-    <div class="panel-row">
+    <div class="panel-row" id="settings-board-row">
       <span class="panel-row-label">Board</span>
       <button class="btn-icon" onclick="saveBoard()"><svg class="icon"><use href="icons/icons.svg#save"></use></svg> Save</button>
       <button class="btn-icon" onclick="document.getElementById('load-input').click()"><svg class="icon"><use href="icons/icons.svg#folder"></use></svg> Load</button>

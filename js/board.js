@@ -228,6 +228,7 @@ function togglePanel(name) {
   if (openPanel !== 'grid') exitObstacleEdit();
   if (openPanel !== 'drawing') exitDrawingMode();
   if (openPanel === 'settings') refreshRoomInput();
+  if (btn) btn.blur();   // drop focus so the button doesn't stay highlighted after closing
 }
 
 /* Collapsible top-right dock: flips the arrow and slides the panel icons in/out. */
