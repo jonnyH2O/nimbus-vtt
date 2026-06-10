@@ -295,12 +295,15 @@ function initBoard() {
 
   /* Pan — drag empty canvas with left or middle button */
   canvasWrap.addEventListener('pointerdown', e => {
+    // A pointer that starts on a token drives that token's own drag — never let
+    // it into the pan/pinch tracker, so a second finger can't turn a token drag
+    // into a pinch-zoom.
+    if (e.target.closest('.token')) return;
     if (e.pointerType === 'touch') {
       touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touchPts.size === 2) { startPinch(); return; }
     }
     if (pinchActive) return;
-    if (e.target.closest('.token')) return;
     if (!spaceHeld) {
       if (gridDrawMode) { gridDrawDown(e); return; }
       if (obstacleEditMode && e.button === 0) { obstaclePaintDown(e); return; }
