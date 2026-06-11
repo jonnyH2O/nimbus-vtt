@@ -9,6 +9,12 @@ const hint       = document.getElementById('hint');
 
 let currentTokenImage = null;
 
+// Monotonic stacking counter: selecting/grabbing a token bumps it above all
+// others. Starts well above idle tokens (auto/0) and stays inside the 32-bit
+// z-index limit (~2.1B) — a plain incrementing int, never Date.now() (which
+// overflows and clamps, leaving every token tied).
+let topTokenZ = 10;
+
 function setCurrentTokenImage(dataURL) {
   currentTokenImage = dataURL;
   updateUploadButtonLabel();
@@ -169,7 +175,7 @@ function select(id) {
   selectedId = id;
   if (id != null) {
     const el = tokenLayer.querySelector(`[data-id="${id}"]`);
-    if (el) { el.classList.add('selected'); el.style.zIndex = Date.now(); }
+    if (el) { el.classList.add('selected'); el.style.zIndex = ++topTokenZ; }
   }
 }
 
