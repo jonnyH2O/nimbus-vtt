@@ -615,6 +615,10 @@ body.grid-panel-open #obstacle-layer { display: block; }
   transform: translate(-50%, -50%);
 }
 .token:active { cursor: grabbing; }
+/* Lift the active token above the others so its name + distance badge are never
+   covered by a neighbouring token's body. */
+.token.selected,
+.token.dragging { z-index: 50; }
 .token.selected .token-ring {
   outline: 3px solid var(--accent);
   outline-offset: 4px;
