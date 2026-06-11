@@ -4,7 +4,6 @@ const DRAW_CANVAS_SIZE   = 2560;   // default buffer size when no background is 
 const DRAW_CANVAS_OFFSET = 1280;   // default world (0,0) → canvas pixel (1280,1280)
 const DRAW_PAD     = 300;          // world-px drawable margin kept around the background
 const DRAW_MAX_DIM = 8192;         // cap on canvas buffer dimension (browser canvas limits)
-const MAX_UNDO = 50;
 
 const drawingCanvas = document.getElementById('drawing-layer');
 const drawingCtx    = drawingCanvas.getContext('2d');
@@ -24,11 +23,10 @@ let currentDrawTool  = null;        // null | 'pen' | 'rect' | 'circle' | 'line'
 let currentDrawColor = '#e04040';
 let currentDrawSize  = 6;
 
-let drawingStrokes       = [];     // strokes in WORLD coordinates
-let drawingUndoneStrokes = [];
-let drawingBaseImage     = null;   // HTMLCanvasElement | null — flattened older strokes
-let drawingSourceURL     = null;   // last full-canvas PNG applied (remote/loaded); kept so
-                                   // it can be repainted if the canvas geometry changes
+let drawingStrokes   = [];         // strokes in WORLD coordinates (the source of truth)
+let drawingBaseImage = null;       // HTMLCanvasElement | null — raster from a loaded PNG save
+let drawingSourceURL = null;       // last full-canvas PNG applied (legacy load); kept so it
+                                   // can be repainted if the canvas geometry changes
 
 let drawActive        = false;
 let drawStartPt       = null;
@@ -193,24 +191,29 @@ function drawUp(e) {
   drawActive = false;
   const pt = screenToDrawWorld(e.clientX, e.clientY);
 
+  let stroke = null;
   if (currentDrawTool === 'pen') {
-    pushStroke({ type: 'pen', color: currentDrawColor, width: currentDrawSize, points: drawCurrentPoints });
+    stroke = { type: 'pen', color: currentDrawColor, width: currentDrawSize, points: drawCurrentPoints };
   } else if (currentDrawTool === 'eraser') {
-    pushStroke({ type: 'eraser', width: currentDrawSize, points: drawCurrentPoints });
+    stroke = { type: 'eraser', width: currentDrawSize, points: drawCurrentPoints };
   } else if (currentDrawTool === 'rect' || currentDrawTool === 'circle' || currentDrawTool === 'line') {
-    pushStroke({
+    stroke = {
       type:  currentDrawTool,
       color: currentDrawColor,
       width: currentDrawSize,
       x0: drawStartPt.x, y0: drawStartPt.y,
       x1: pt.x,          y1: pt.y,
-    });
+    };
   }
 
   drawCurrentPoints = null;
   drawStartPt = null;
   drawShapeSnapshot = null;
-  syncDrawing();
+
+  if (stroke) {
+    pushStroke(stroke);                                    // local source of truth
+    if (window.Sync) window.Sync.pushStroke(stroke);       // broadcast just this stroke
+  }
 }
 
 /* ───── Stroke primitives ───── */
@@ -306,62 +309,65 @@ function redrawAll() {
   for (const s of drawingStrokes) drawStrokeOnContext(drawingCtx, s);
 }
 
+// Append-only: a stroke is added and never removed mid-history (no undo). The only
+// reset is clearDrawing(), which empties the whole list.
 function pushStroke(stroke) {
   drawingStrokes.push(stroke);
-  drawingUndoneStrokes = [];
-  while (drawingStrokes.length > MAX_UNDO) {
-    if (!drawingBaseImage) {
-      drawingBaseImage = document.createElement('canvas');
-      drawingBaseImage.width  = drawW;
-      drawingBaseImage.height = drawH;
-    }
-    drawStrokeOnContext(drawingBaseImage.getContext('2d'), drawingStrokes.shift());
-  }
 }
 
-/* ───── Undo / Redo / Clear ───── */
+/* ───── Clear ───── */
 
-function drawUndo() {
-  if (!drawingStrokes.length) return;
-  drawingUndoneStrokes.push(drawingStrokes.pop());
-  redrawAll();
-  syncDrawing();
-}
-function drawRedo() {
-  if (!drawingUndoneStrokes.length) return;
-  const s = drawingUndoneStrokes.pop();
-  drawingStrokes.push(s);
-  drawStrokeOnContext(drawingCtx, s);
-  syncDrawing();
-}
 function clearDrawing() {
-  pushStroke({ type: 'clear' });
-  drawStrokeOnContext(drawingCtx, { type: 'clear' });
-  syncDrawing();
+  drawingStrokes = [];
+  drawingBaseImage = null;
+  drawingSourceURL = null;
+  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawingCtx.clearRect(0, 0, drawW, drawH);
+  if (window.Sync) window.Sync.clearDrawingStrokes();
 }
 
-/* ───── Sync helper (push the canvas as a data URL) ───── */
+/* ───── Remote apply (called by sync.js) ───── */
 
-// Broadcast the current drawing layer to the room (no-op if offline).
-function syncDrawing() {
-  if (window.Sync) window.Sync.pushDrawing(getDrawingDataURL());
+// A stroke arrived from another client: append it and draw just that stroke on
+// top. Append-only means nothing below it changes, so no full redraw is needed.
+function applyRemoteStroke(stroke) {
+  if (!stroke || typeof stroke !== 'object') return;
+  if (stroke.type === 'clear') { clearDrawingLocal(); return; }
+  drawingStrokes.push(stroke);
+  drawStrokeOnContext(drawingCtx, stroke);
+}
+
+// A remote Clear-All (or load): wipe local strokes and the canvas, no rebroadcast.
+function clearDrawingLocal() {
+  drawingStrokes = [];
+  drawingBaseImage = null;
+  drawingSourceURL = null;
+  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawingCtx.clearRect(0, 0, drawW, drawH);
 }
 
 /* ───── Save / Load hooks ───── */
 
-function getDrawingDataURL() {
-  if (drawingStrokes.length === 0 && !drawingBaseImage && !drawingSourceURL) return null;
-  return drawingCanvas.toDataURL('image/png');
+// Save files store the stroke list directly (vector, compact) instead of a PNG.
+function getDrawingStrokes() {
+  return drawingStrokes.slice();
 }
 
+function setDrawingStrokes(strokes) {
+  drawingStrokes = Array.isArray(strokes) ? strokes.slice() : [];
+  drawingBaseImage = null;
+  drawingSourceURL = null;
+  redrawAll();
+}
+
+// Legacy load path: older save files stored the drawing as a full-canvas PNG.
 function restoreDrawingFromDataURL(dataURL) {
   drawingStrokes = [];
-  drawingUndoneStrokes = [];
   drawingBaseImage = null;
   drawingSourceURL = (dataURL && typeof dataURL === 'string') ? dataURL : null;
   drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
   drawingCtx.clearRect(0, 0, drawW, drawH);
-  // The canvas geometry is set from the background (restored/synced separately). If the
+  // The canvas geometry is set from the background (restored separately). If the
   // background arrives after this, applyDrawingGeometry repaints the PNG at the corrected
   // geometry via paintSourceURL — so the drawing lines up regardless of arrival order.
   if (drawingSourceURL) paintSourceURL(drawingSourceURL);
@@ -370,16 +376,6 @@ function restoreDrawingFromDataURL(dataURL) {
 /* ───── Init (keyboard shortcuts + initial color) ───── */
 
 function initDrawing() {
-  /* Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — undo / redo */
-  document.addEventListener('keydown', e => {
-    if (!(e.ctrlKey || e.metaKey)) return;
-    const tag = document.activeElement && document.activeElement.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    const k = e.key.toLowerCase();
-    if (k === 'z' && !e.shiftKey)                 { e.preventDefault(); drawUndo(); }
-    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); drawRedo(); }
-  });
-
   /* D = draw, E = erase (toggle; works without the panel open) */
   document.addEventListener('keydown', e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;

@@ -31,7 +31,7 @@ async function saveBoard() {
     },
     obstacles: Array.from(obstacles),
     background: await captureBackgroundState(),
-    drawing: getDrawingDataURL(),
+    drawing: getDrawingStrokes(),
     view: { x: view.x, y: view.y, zoom: view.zoom }
   };
   const json = JSON.stringify(state, null, 2);
@@ -129,7 +129,9 @@ function restoreBoard(state) {
   nextId = maxId + 1;
 
   // ── Drawing layer ──
-  restoreDrawingFromDataURL(typeof state.drawing === 'string' ? state.drawing : null);
+  // New saves store a strokes array; legacy saves stored a full-canvas PNG string.
+  if (Array.isArray(state.drawing)) setDrawingStrokes(state.drawing);
+  else restoreDrawingFromDataURL(typeof state.drawing === 'string' ? state.drawing : null);
 
   // ── View ──
   const v = (state.view && typeof state.view === 'object') ? state.view : null;
@@ -153,7 +155,7 @@ function restoreBoard(state) {
         obstacles:  Array.from(obstacles),
         background: (state.background && typeof state.background.image === 'string')
                       ? state.background.image : null,
-        drawing:    typeof state.drawing === 'string' ? state.drawing : null
+        drawing:    getDrawingStrokes()
       });
     }
   }

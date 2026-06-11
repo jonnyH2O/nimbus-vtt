@@ -9,7 +9,8 @@
    locally as a single-player tool — every entry point fails soft. */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, remove, push, get,
+         onChildAdded, onChildChanged, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBgL5KT9_sUoU2X-E-_eojSM7IYjm4cSL0",
@@ -84,7 +85,7 @@ export function initSync() {
   listenGrid();
   listenObstacles();
   listenBackground();
-  listenDrawing();
+  listenStrokes();
   console.info('[sync] connected. room:', roomId, 'client:', clientId);
 }
 
@@ -93,33 +94,37 @@ export function initSync() {
    clientId persists in sessionStorage but local state is gone, so without
    hydration we'd skip our own data forever and the board would look wiped. */
 
+/* Per-child token listeners: a single token change downloads only that token,
+   not the whole collection. child_removed handles deletes individually (a loaded
+   board / full-state replace drops stale tokens via removed + added). The hydrate
+   guard mirrors the old listener: apply our own data while hydrating (so a reload
+   rebuilds the board), then suppress our own live echoes. */
 function listenTokens() {
   let hydrated = false;
-  onValue(pathRef('tokens'), snap => {
-    const map = snap.val() || {};
-    const curIds = new Set();
-    let maxId = 0;
-    for (const key in map) {
-      const t = map[key];
-      if (!t || typeof t !== 'object') continue;
-      const id = Number(t.id);
-      if (!Number.isFinite(id)) continue;
-      curIds.add(id);
-      if (id > maxId) maxId = id;
-      if (hydrated && t._by === clientId) continue;   // our own live echo — skip
-      if (window.upsertRemoteToken) window.upsertRemoteToken(t);
-    }
-    // Room is authoritative: drop any LOCAL token that isn't in the snapshot.
-    // This is what makes a loaded board (or a remote delete) clear leftover
-    // tokens everywhere — including local-only ones that were never pushed.
-    if (window.getLocalTokenIds && window.removeTokenLocal) {
-      for (const id of window.getLocalTokenIds()) {
-        if (!curIds.has(id)) window.removeTokenLocal(id);
-      }
-    }
-    hydrated = true;
-    if (window.bumpNextId) window.bumpNextId(maxId + 1);
-  }, err => console.warn('[sync] tokens listener:', err));
+  const tokensRef = pathRef('tokens');
+  const apply = t => {
+    if (!t || typeof t !== 'object') return;
+    const id = Number(t.id);
+    if (!Number.isFinite(id)) return;
+    if (window.bumpNextId) window.bumpNextId(id + 1);
+    if (window.upsertRemoteToken) window.upsertRemoteToken(t);
+  };
+  onChildAdded(tokensRef, snap => {
+    const t = snap.val();
+    if (hydrated && t && t._by === clientId) return;   // our own creation echo
+    apply(t);
+  }, err => console.warn('[sync] token added:', err));
+  onChildChanged(tokensRef, snap => {
+    const t = snap.val();
+    if (t && t._by === clientId) return;               // our own live drag/edit echo
+    apply(t);
+  }, err => console.warn('[sync] token changed:', err));
+  onChildRemoved(tokensRef, snap => {
+    const t = snap.val();
+    const id = t ? Number(t.id) : NaN;
+    if (Number.isFinite(id) && window.removeTokenLocal) window.removeTokenLocal(id);
+  }, err => console.warn('[sync] token removed:', err));
+  get(tokensRef).then(() => { hydrated = true; }).catch(() => { hydrated = true; });
 }
 
 function listenGrid() {
@@ -155,14 +160,27 @@ function listenBackground() {
   }, err => console.warn('[sync] background listener:', err));
 }
 
-function listenDrawing() {
+/* Drawing is an append-only stream of strokes under drawing/strokes. Each new
+   stroke arrives as one small child; Clear-All removes the whole node. The only
+   removal is a clear, so any child_removed means "wipe". */
+function listenStrokes() {
   let hydrated = false;
-  onValue(pathRef('drawing'), snap => {
-    const d = snap.val();
-    if (hydrated && d && d._by === clientId) return;
-    hydrated = true;
-    if (window.restoreDrawingFromDataURL) window.restoreDrawingFromDataURL(d ? d.data : null);
-  }, err => console.warn('[sync] drawing listener:', err));
+  const strokesRef = pathRef('drawing/strokes');
+  onChildAdded(strokesRef, snap => {
+    const s = snap.val();
+    if (!s || typeof s !== 'object') return;
+    // Our own live stroke is already on the local canvas — skip its echo so it
+    // isn't appended twice. On reload (hydrated still false) we DO apply our own,
+    // since local state is empty and the room is the source of truth.
+    if (hydrated && s._by === clientId) return;
+    if (window.applyRemoteStroke) window.applyRemoteStroke(s);
+  }, err => console.warn('[sync] strokes added:', err));
+  onChildRemoved(strokesRef, () => {
+    if (window.clearDrawingLocal) window.clearDrawingLocal();
+  }, err => console.warn('[sync] strokes removed:', err));
+  // Initial children fire child_added before get() resolves, so flipping the echo
+  // guard here means hydration strokes apply, then our own live strokes are skipped.
+  get(strokesRef).then(() => { hydrated = true; }).catch(() => { hydrated = true; });
 }
 
 /* ───────── Push API (writes to Firebase immediately) ───────── */
@@ -188,10 +206,16 @@ export function pushBackground(base64) {
   else        remove(pathRef('background')).catch(warn);
 }
 
-export function pushDrawing(base64) {
+// Append one stroke to the room (tiny delta — no full-canvas re-upload).
+export function pushStroke(stroke) {
+  if (!ready() || !stroke || typeof stroke !== 'object') return;
+  push(pathRef('drawing/strokes'), { ...stroke, _by: clientId }).catch(warn);
+}
+
+// Clear-All wipes the whole stroke stream in one delete.
+export function clearDrawingStrokes() {
   if (!ready()) return;
-  if (base64) set(pathRef('drawing'), { data: base64, _by: clientId }).catch(warn);
-  else        remove(pathRef('drawing')).catch(warn);
+  remove(pathRef('drawing/strokes')).catch(warn);
 }
 
 export function pushObstacles(obstacles) {
@@ -209,12 +233,20 @@ export function pushFullState(state) {
   for (const t of (state.tokens || [])) {
     if (t && t.id != null) tokensObj[t.id] = { ...t, _by: clientId };
   }
+  // Drawing is now a stroke stream: rebuild drawing/strokes with fresh push keys
+  // so order is preserved and remote clients hydrate via child_added.
+  const strokesObj = {};
+  for (const s of (state.drawing || [])) {
+    if (s && typeof s === 'object') {
+      strokesObj[push(pathRef('drawing/strokes')).key] = { ...s, _by: clientId };
+    }
+  }
   set(ref(db, 'rooms/' + roomId), {
     tokens:     tokensObj,
     grid:       state.grid ? { ...state.grid, _by: clientId } : null,
     obstacles:  { cells: state.obstacles || [], _by: clientId },
     background: state.background ? { data: state.background, _by: clientId } : null,
-    drawing:    state.drawing ? { data: state.drawing, _by: clientId } : null
+    drawing:    Object.keys(strokesObj).length ? { strokes: strokesObj } : null
   }).catch(warn);
 }
 
@@ -231,7 +263,7 @@ export function getRoomId() { return roomId; }
 if (typeof window !== 'undefined') {
   window.Sync = {
     initSync, pushToken, removeToken,
-    pushGrid, pushBackground, pushDrawing, pushObstacles,
+    pushGrid, pushBackground, pushStroke, clearDrawingStrokes, pushObstacles,
     pushFullState, isConnected, getRoomId
   };
 }
