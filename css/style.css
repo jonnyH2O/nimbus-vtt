@@ -611,6 +611,8 @@ body.grid-panel-open #obstacle-layer { display: block; }
   position: absolute;
   cursor: grab;
   user-select: none;
+  -webkit-user-select: none;       /* iOS/Safari: no text highlight on long-press */
+  -webkit-touch-callout: none;     /* iOS: no "copy / save image" callout menu */
   touch-action: none;
   transform: translate(-50%, -50%);
 }
