@@ -164,10 +164,6 @@ function bumpNextId(n) {
   if (Number.isFinite(n) && n > nextId) nextId = n;
 }
 
-// Used by sync.js to reconcile against the room as the source of truth: any
-// local token not present in the room snapshot is removed.
-function getLocalTokenIds() { return Object.keys(tokens).map(Number); }
-
 function select(id) {
   document.querySelectorAll('.token').forEach(t => t.classList.remove('selected'));
   selectedId = id;
@@ -498,7 +494,10 @@ function acceptCrop() {
     img.naturalWidth  * cropScale * s,
     img.naturalHeight * cropScale * s
   );
-  const dataURL = out.toDataURL('image/png');
+  // WebP keeps alpha (for transparent source art) but is ~50-70% smaller than PNG,
+  // shrinking the base64 that travels with every token write. Browsers without WebP
+  // encoding silently fall back to PNG, so this is safe everywhere.
+  const dataURL = out.toDataURL('image/webp', 0.85);
   closeCropModal();
   const cb = cropCallback; cropCallback = null;
   if (cb) cb(dataURL);

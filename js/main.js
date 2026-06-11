@@ -15,8 +15,8 @@
   initBackground();
   initSaveLoad();
 
-  // The board starts empty (the shared room is the source of truth); show the
-  // default hint until tokens arrive.
+  // The board starts empty (the shared room is the source of truth). restoreHint
+  // currently just hides the hint overlay (the default banner is disabled).
   restoreHint();
 
   // Real-time multiplayer (optional). sync.js is an ES module loaded last via
