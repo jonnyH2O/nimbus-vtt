@@ -201,7 +201,7 @@ function makeDraggable(el, id) {
       lastHoverKey = '';
       el.classList.add('dragging');
       const badge = el.querySelector('.token-badge');
-      if (badge) badge.textContent = '0 spaces';
+      if (badge) { badge.textContent = '0 spaces'; badge.classList.remove('show'); }
     }
   });
 
@@ -233,10 +233,13 @@ function makeDraggable(el, id) {
         const result = findPath(dragOriginCell, target);
         if (result) {
           showPath(result.cells);
-          if (badge) badge.textContent = result.cost + (result.cost === 1 ? ' space' : ' spaces');
+          if (badge) {
+            badge.textContent = result.cost + (result.cost === 1 ? ' space' : ' spaces');
+            badge.classList.toggle('show', result.cost > 0);   // hide when back at origin
+          }
         } else {
           clearPath();
-          if (badge) badge.textContent = 'blocked';
+          if (badge) { badge.textContent = 'blocked'; badge.classList.add('show'); }
         }
       }
     }
@@ -259,6 +262,8 @@ function makeDraggable(el, id) {
     dragOriginCell = null;
     el.classList.remove('dragging');
     el.classList.remove('lifted');
+    const badge = el.querySelector('.token-badge');
+    if (badge) badge.classList.remove('show');
     clearPath();
     syncToken(id);
   };

@@ -589,7 +589,8 @@ body.grid-panel-open #obstacle-layer { display: block; }
   pointer-events: none;
   display: none;
 }
-.token.dragging .token-badge { display: block; }
+/* Shown only when the badge has something worth showing (distance > 0 or blocked) */
+.token.dragging .token-badge.show { display: block; }
 
 .grid-draw-preview {
   position: absolute;
