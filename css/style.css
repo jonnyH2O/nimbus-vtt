@@ -619,6 +619,8 @@ body.grid-panel-open #obstacle-layer { display: block; }
    covered by a neighbouring token's body. */
 .token.selected,
 .token.dragging { z-index: 50; }
+/* A picked-up token rides above everything it's dragged over. */
+.token.lifted { z-index: 60; }
 .token.selected .token-ring {
   outline: 3px solid var(--accent);
   outline-offset: 4px;
