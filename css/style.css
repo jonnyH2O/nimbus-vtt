@@ -660,7 +660,10 @@ body.grid-panel-open #obstacle-layer { display: block; }
   text-overflow: ellipsis;
   text-align: center;
   pointer-events: none;
+  opacity: 0;                  /* name only shows while the token is selected */
+  transition: opacity 0.15s;
 }
+.token.selected .token-label { opacity: 1; }
 
 .resize-handle {
   position: absolute;
