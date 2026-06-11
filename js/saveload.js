@@ -1,6 +1,6 @@
 /* ───────── Save / Load board state ─────────
    Serializes tokens, grid, obstacles, background (base64), drawing layer
-   (data URL), and view into a downloadable .json. On load, wipes the scene
+   (stroke array), and view into a downloadable .json. On load, wipes the scene
    and rebuilds it piece by piece, tolerating missing or malformed fields. */
 
 const SAVE_VERSION = 1;
@@ -129,9 +129,7 @@ function restoreBoard(state) {
   nextId = maxId + 1;
 
   // ── Drawing layer ──
-  // New saves store a strokes array; legacy saves stored a full-canvas PNG string.
-  if (Array.isArray(state.drawing)) setDrawingStrokes(state.drawing);
-  else restoreDrawingFromDataURL(typeof state.drawing === 'string' ? state.drawing : null);
+  setDrawingStrokes(Array.isArray(state.drawing) ? state.drawing : []);
 
   // ── View ──
   const v = (state.view && typeof state.view === 'object') ? state.view : null;

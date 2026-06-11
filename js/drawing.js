@@ -1,4 +1,6 @@
-/* ───────── Drawing layer (freehand + shapes + eraser + undo/redo) ───────── */
+/* ───────── Drawing layer (freehand + shapes + eraser) ─────────
+   Append-only stroke model: strokes are added and never removed mid-history.
+   Corrections are the eraser (a destination-out stroke) and Clear-All. */
 
 const DRAW_CANVAS_SIZE   = 2560;   // default buffer size when no background is loaded
 const DRAW_CANVAS_OFFSET = 1280;   // default world (0,0) → canvas pixel (1280,1280)
@@ -23,10 +25,7 @@ let currentDrawTool  = null;        // null | 'pen' | 'rect' | 'circle' | 'line'
 let currentDrawColor = '#e04040';
 let currentDrawSize  = 6;
 
-let drawingStrokes   = [];         // strokes in WORLD coordinates (the source of truth)
-let drawingBaseImage = null;       // HTMLCanvasElement | null — raster from a loaded PNG save
-let drawingSourceURL = null;       // last full-canvas PNG applied (legacy load); kept so it
-                                   // can be repainted if the canvas geometry changes
+let drawingStrokes = [];           // strokes in WORLD coordinates (the source of truth)
 
 let drawActive        = false;
 let drawStartPt       = null;
@@ -99,12 +98,10 @@ function updateDrawingGeometryForBackground(boxW, boxH) {
   }
 }
 
-// Resize/reposition the canvas buffer and repaint the existing drawing into it.
+// Resize/reposition the canvas buffer and replay the strokes into it. Strokes are
+// stored in world coordinates, so they re-render correctly at the new offset.
 function applyDrawingGeometry(newW, newH, newOffX, newOffY) {
   if (newW === drawW && newH === drawH && newOffX === drawOffX && newOffY === drawOffY) return;
-
-  const dx = newOffX - drawOffX, dy = newOffY - drawOffY;
-  const oldBase = drawingBaseImage;
 
   drawW = newW; drawH = newH; drawOffX = newOffX; drawOffY = newOffY;
   drawingCanvas.width  = newW;          // resizing clears the buffer + resets the transform
@@ -114,36 +111,7 @@ function applyDrawingGeometry(newW, newH, newOffX, newOffY) {
   drawingCanvas.style.left   = (-newOffX) + 'px';
   drawingCanvas.style.top    = (-newOffY) + 'px';
 
-  // A drawing applied from a PNG (remote/loaded) whose true geometry may not have
-  // been known when it was painted (load races background) is authoritative — repaint
-  // it from source at the corrected geometry. Locally-drawn content (has strokes, or a
-  // base flattened in a known geometry) just shifts by the pure pixel translation.
-  if (drawingSourceURL && drawingStrokes.length === 0) {
-    drawingBaseImage = null;
-    paintSourceURL(drawingSourceURL);
-    return;
-  }
-  if (oldBase) {
-    const nb = document.createElement('canvas');
-    nb.width = newW; nb.height = newH;
-    nb.getContext('2d').drawImage(oldBase, dx, dy);
-    drawingBaseImage = nb;
-  }
   redrawAll();
-}
-
-// Paint a full-canvas PNG into a fresh base image at the current geometry, then redraw.
-function paintSourceURL(dataURL) {
-  const img = new Image();
-  img.onload = () => {
-    const b = document.createElement('canvas');
-    b.width = drawW; b.height = drawH;
-    b.getContext('2d').drawImage(img, 0, 0);
-    drawingBaseImage = b;
-    redrawAll();
-  };
-  img.onerror = () => {};
-  img.src = dataURL;
 }
 
 /* ───── Pointer handlers (called from board.js) ───── */
@@ -305,7 +273,6 @@ function drawStrokeOnContext(ctx, stroke) {
 function redrawAll() {
   drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
   drawingCtx.clearRect(0, 0, drawW, drawH);
-  if (drawingBaseImage) drawingCtx.drawImage(drawingBaseImage, 0, 0);
   for (const s of drawingStrokes) drawStrokeOnContext(drawingCtx, s);
 }
 
@@ -315,14 +282,16 @@ function pushStroke(stroke) {
   drawingStrokes.push(stroke);
 }
 
+function wipeCanvas() {
+  drawingStrokes = [];
+  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawingCtx.clearRect(0, 0, drawW, drawH);
+}
+
 /* ───── Clear ───── */
 
 function clearDrawing() {
-  drawingStrokes = [];
-  drawingBaseImage = null;
-  drawingSourceURL = null;
-  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
-  drawingCtx.clearRect(0, 0, drawW, drawH);
+  wipeCanvas();
   if (window.Sync) window.Sync.clearDrawingStrokes();
 }
 
@@ -337,13 +306,9 @@ function applyRemoteStroke(stroke) {
   drawStrokeOnContext(drawingCtx, stroke);
 }
 
-// A remote Clear-All (or load): wipe local strokes and the canvas, no rebroadcast.
+// A remote Clear-All: wipe local strokes and the canvas, no rebroadcast.
 function clearDrawingLocal() {
-  drawingStrokes = [];
-  drawingBaseImage = null;
-  drawingSourceURL = null;
-  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
-  drawingCtx.clearRect(0, 0, drawW, drawH);
+  wipeCanvas();
 }
 
 /* ───── Save / Load hooks ───── */
@@ -355,22 +320,7 @@ function getDrawingStrokes() {
 
 function setDrawingStrokes(strokes) {
   drawingStrokes = Array.isArray(strokes) ? strokes.slice() : [];
-  drawingBaseImage = null;
-  drawingSourceURL = null;
   redrawAll();
-}
-
-// Legacy load path: older save files stored the drawing as a full-canvas PNG.
-function restoreDrawingFromDataURL(dataURL) {
-  drawingStrokes = [];
-  drawingBaseImage = null;
-  drawingSourceURL = (dataURL && typeof dataURL === 'string') ? dataURL : null;
-  drawingCtx.setTransform(1, 0, 0, 1, 0, 0);
-  drawingCtx.clearRect(0, 0, drawW, drawH);
-  // The canvas geometry is set from the background (restored separately). If the
-  // background arrives after this, applyDrawingGeometry repaints the PNG at the corrected
-  // geometry via paintSourceURL — so the drawing lines up regardless of arrival order.
-  if (drawingSourceURL) paintSourceURL(drawingSourceURL);
 }
 
 /* ───── Init (keyboard shortcuts + initial color) ───── */
